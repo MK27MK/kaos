@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "numpy>=2.2.4",
+]
+
+[dependency-groups]
+dev = [
+    "revelation",
+]
+
+[tool.uv.sources]
+revelation = { workspace = true }
