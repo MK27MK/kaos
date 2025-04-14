@@ -1,0 +1,26 @@
+# TODOS
+
+- make solid data loading system with naming conventions
+- create plotting with realtime compatibility without desrupting nautilus
+- ...
+
+## notes
+
+- non mi piace come in test-kit/providers.py si usi `first_friday_two_years_six_months_ago` \
+  nel calcolo dell'activation date dei futures, potenzialmente impreciso.
+
+## questions
+
+- https://nautilustrader.io/docs/latest/concepts/backtesting
+
+  The platform converts each bar's OHLC prices into a sequence of market updates.
+  These updates always follow the same order: Open → High → Low → Close.
+  If you provide multiple timeframes (like both 1-minute and 5-minute bars), the platform uses the more granular data for highest accuracy.
+
+  **question**: so if I provide 1min and 1hr data, the latter is going to have \ 60 intrabar states before being complete?
+
+- if current candle hits my limit order is it going to be triggered
+  at the limit price or at the closing price of the candle that hits it?
+
+- what's going to happen if I resample a timeframe with missing timestamps /
+  to a higher timeframe?

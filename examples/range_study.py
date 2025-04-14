@@ -1,5 +1,5 @@
 from research import Study, Hypothesis  # , RangeStudy?
-from ... import Universe
+from data import Universe
 
 universe: Universe = Universe()
 # hypothesis example:
