@@ -2,10 +2,7 @@ from pathlib import Path
 import pandas as pd
 
 
-class DataLoader:
-    """
-    Contains methods to load data from different sources.
-    """
+class CSVPresets:
 
     # Preset per i file "firstrate": niente header e potenziale colonna open_interest.
     PRESET_FIRSTRATE = {
@@ -21,6 +18,12 @@ class DataLoader:
             "open_interest",
         ],
     }
+
+
+class DataLoader:
+    """
+    Contains methods to load data from different sources.
+    """
 
     @staticmethod
     def read(
