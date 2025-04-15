@@ -1,5 +1,5 @@
 # attualmente lo scrivo col backtesting in testa
-from data import Universe
+from data.data import Universe
 from strategy import Strategy
 from risk import Portfolio
 
