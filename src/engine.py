@@ -11,7 +11,7 @@ class Engine:
         # in verita non stratey ma subclass
         strategy: Strategy | list[Strategy],
         portfolio: Portfolio,
-        # findings table...
+        # findings table... (potrei legarlo direttaemtne a strategy/study)
     ):
         pass
 

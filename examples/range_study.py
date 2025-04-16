@@ -16,4 +16,5 @@ universe: Universe = Universe(instruments)
 # possible parameters: categories,
 hypothesis: Hypothesis = Hypothesis(...)
 
+# forse non metto universe qui ma in engine piuttosto
 study = Study(universe, hypothesis)

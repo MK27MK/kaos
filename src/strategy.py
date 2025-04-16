@@ -1,2 +1,7 @@
-class Strategy:  # TODO make it abc?
-    pass
+from abc import ABC, abstractmethod
+
+
+class Strategy(ABC):  # TODO make it abc?
+    @abstractmethod
+    def on_init(self):
+        pass
