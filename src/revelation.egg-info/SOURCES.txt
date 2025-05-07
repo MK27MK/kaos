@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+src/__init__.py
+src/revelation/engine.py
+src/revelation/research.py
+src/revelation/strategy.py
+src/revelation/time_utils.py
+src/revelation.egg-info/PKG-INFO
+src/revelation.egg-info/SOURCES.txt
+src/revelation.egg-info/dependency_links.txt
+src/revelation.egg-info/requires.txt
+src/revelation.egg-info/top_level.txt
+src/revelation/data/data.py
+src/revelation/data/loading.py
