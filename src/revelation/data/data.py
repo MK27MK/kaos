@@ -3,7 +3,24 @@ from pathlib import Path
 
 import pandas as pd
 
-from revelation.time_utils import MONTH_CODES
+from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
+
+# ----------------------------------------------------------------------
+# asset classes
+# ----------------------------------------------------------------------
+
+
+class AssetClass:
+    pass
+
+
+class Currencies(AssetClass):
+    pass
+
+
+# ----------------------------------------------------------------------
+# instruments classes
+# ----------------------------------------------------------------------
 
 
 class Instrument:
@@ -40,22 +57,41 @@ class FuturesContract(Instrument):
         if not parsed:
             raise ValueError(f"Failed to parse contract code: {contract_code}")
 
-        self.product_code = parsed["product"]  # ex. 6E, ES, ZN
-        self.month_code = parsed["month"]  # ex. H, M, U, Z
+        self.product_code: str = parsed["product"]  # ex. 6E, ES, ZN
+        self.month_code: str = parsed["month"]  # ex. H, M, U, Z
         # --------------------------------------------------------------
 
-        self.contract_code = contract_code
-        self.activation = activation
-        self.expiration = (
-            expiration if expiration is not None else self._get_expiration()
+        self.asset_class = asset_class
+        self.contract_code: str = contract_code
+        self.activation: pd.Timestamp = (
+            activation  # NOTE mi importa meno della scadenza,
+        )
+        # puoi anche usare la prima riga del df/ usarlo come validazione se trovi
+        # la regole ufficiale
+        self.expiration: pd.Timestamp = (
+            expiration
+            if expiration is not None
+            else self._get_expiration(parsed["year"])
         )
         # etc
 
     # helpers-----------------------------------------------------------
-    @staticmethod
-    def _get_expiration(self):
+    def _get_expiration(self, year: str) -> pd.Timestamp:
+        # NOTE ci sono eccezioni in base a prodotto, es: CAD # https://www.cmegroup.com/rulebook/CME/III/250/252/252.pdf
         # TODO valida la scadenza usando la data dell'ultima riga del df
-        """Calculates contract's expiration date based on CME's criteria."""
+        """Given expiry year and month code, returns contract's
+        expiration date based on CME's criteria."""
+
+        # retrieve expiry year and month as integers
+        year_num = int(year)  # TODO gestisci eventuale anno a due cifre
+        month_num = month_of_year(self.month_code)
+
+        # match self.asset_class:
+        #     case Currencies:
+        # third wed of contract month
+        first_day = pd.Timestamp(
+            year=year_num, month=month_num, day=1, tz=STANDARD_TIMEZONE
+        )
         pass
 
 
@@ -67,6 +103,11 @@ class FuturesProduct(Instrument):
 # avere un unico time index anziche 3 mila tabelle
 class Universe:
     pass
+
+
+# ----------------------------------------------------------------------
+# helper functions
+# ----------------------------------------------------------------------
 
 
 # devo avere la timeline dei contratti allineati per bene per strumento,
