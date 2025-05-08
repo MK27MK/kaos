@@ -3,20 +3,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from revelation.data.enums import AssetClass
 from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
-
-# ----------------------------------------------------------------------
-# asset classes
-# ----------------------------------------------------------------------
-
-
-class AssetClass:
-    pass
-
-
-class Currencies(AssetClass):
-    pass
-
 
 # ----------------------------------------------------------------------
 # instruments classes
@@ -24,8 +12,7 @@ class Currencies(AssetClass):
 
 
 class Instrument:
-    # per ora lo lascio vuoto
-    def __init__(self, sector):
+    def __init__(self, asset_class: AssetClass):
         pass
 
 
@@ -40,7 +27,7 @@ class FuturesContract(Instrument):
 
     def __init__(
         self,
-        asset_class,
+        asset_class: AssetClass,
         contract_code: str,  # i.e. 6EM2025, ESH2020
         activation: pd.Timestamp | None = None,
         expiration: pd.Timestamp | None = None,
@@ -48,14 +35,13 @@ class FuturesContract(Instrument):
             pd.DataFrame | None
         ) = None,  # NOTE per adesso pensiamo solo a D candlestick data
     ):
-        # TODO gestisci l'ereditarieta
         super().__init__(asset_class)
 
         # contract code parsing ----------------------------------------
         code = contract_code.upper()
         parsed = self._RE.match(code)
         if not parsed:
-            raise ValueError(f"Failed to parse contract code: {contract_code}")
+            raise ValueError(f"Failed to parse contract code: {code}")
 
         self.product_code: str = parsed["product"]  # ex. 6E, ES, ZN
         self.month_code: str = parsed["month"]  # ex. H, M, U, Z
@@ -120,8 +106,7 @@ def sort_contracts(contracts: list[FuturesContract]) -> None:
     contracts.sort(key=lambda contract: contract.expiration)
 
 
-# TODO deve poter accettare E6_M_2924 o anche E6_M_24
 def stitch_contracts(contracts: list[FuturesContract], rollover_rule) -> pd.DataFrame:
     # sort contracts based on their expiry
-    # sorted_codes: list[str] = sorted(contracts.keys(), key=)
+    sort_contracts(contracts)
     pass

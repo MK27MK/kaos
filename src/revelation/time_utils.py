@@ -1,33 +1,13 @@
-from datetime import datetime, timedelta
-from enum import IntEnum
-
 import pandas as pd
 
-# ----------------------------------------------------------------------
-# constants and enums
-# ----------------------------------------------------------------------
+from revelation.data.enums import DayOfWeek, WeekOfMonth
 
+# ----------------------------------------------------------------------
+# constants
+# ----------------------------------------------------------------------
 
 MONTH_CODES = "FGHJKMNQUVXZ"
 STANDARD_TIMEZONE = "UTC"
-
-
-class DayOfWeek(IntEnum):
-    MON = 0
-    TUE = 1
-    WED = 2
-    THU = 3
-    FRI = 4
-    SAT = 5
-    SUN = 6
-
-
-class WeekOfMonth(IntEnum):
-    FIRST = 0
-    SECOND = 1
-    THIRD = 2
-    FOURTH = 3
-
 
 # ----------------------------------------------------------------------
 # functions
