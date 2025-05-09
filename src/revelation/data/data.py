@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from revelation.data.enums import AssetClass
+from revelation.data.enums import AssetClass, FuturesContractType, RolloverRule
 from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
 
 # ----------------------------------------------------------------------
@@ -31,13 +31,14 @@ class FuturesContract(Instrument):
         contract_code: str,  # i.e. 6EM2025, ESH2020
         activation: pd.Timestamp | None = None,
         expiration: pd.Timestamp | None = None,
-        data: (
-            pd.DataFrame | None
-        ) = None,  # NOTE per adesso pensiamo solo a D candlestick data
+        # NOTE per adesso pensiamo solo a D candlestick data
+        data: pd.DataFrame | None = None,
+        type: FuturesContractType = FuturesContractType.INDIVIDUAL,
     ):
         super().__init__(asset_class)
 
         # contract code parsing ----------------------------------------
+        # TODO aggiungi logica di differenziazione individual e continuous
         code = contract_code.upper()
         parsed = self._RE.match(code)
         if not parsed:
@@ -59,7 +60,8 @@ class FuturesContract(Instrument):
             if expiration is not None
             else self._get_expiration(parsed["year"])
         )
-        # etc
+
+        self.data = data
 
     # helpers-----------------------------------------------------------
     def _get_expiration(self, year: str) -> pd.Timestamp:
@@ -106,7 +108,57 @@ def sort_contracts(contracts: list[FuturesContract]) -> None:
     contracts.sort(key=lambda contract: contract.expiration)
 
 
-def stitch_contracts(contracts: list[FuturesContract], rollover_rule) -> pd.DataFrame:
+def next_timestamp(index: pd.DatetimeIndex, ts: pd.Timestamp) -> pd.Timestamp | None:
+    """Given a DateTimeIndex and a Timestamp, returns the
+    successive Timestamp.
+
+    O(1) if index is sorted and unique, else O(n)"""
+    if ts in index:
+        pos = index.get_loc(ts)
+        return index[pos + 1] if pos + 1 < len(index) else None
+    return None
+
+
+def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> pd.DataFrame:
+    """
+    Contract merging changes based on the timeframe of the candle provided.
+    DAILY:
+    INTRADAY:
+    """
     # sort contracts based on their expiry
     sort_contracts(contracts)
-    pass
+
+    continuous: FuturesContract = FuturesContract(
+        asset_class=contracts[0].asset_class,
+        contract_code=contracts[0].product_code + "1!",
+        activation=contracts[0].activation,
+        expiration=contracts[-1].expiration,
+        data=pd.DataFrame(),
+        type=FuturesContractType.CONTINUOUS,
+    )
+    for i, front in enumerate(contracts):
+        # FIXME causa index out of range se non sistemi
+        next: FuturesContract = contracts[i + 1]
+
+        match rollover_rule:
+            # concatenates to continuous from the day after expiration
+            # to
+            case RolloverRule.EXPIRY:
+                raise NotImplementedError(
+                    "siccome non mi serve per adesso non ci lavoro."
+                )
+                # finds the index immediately after front.expiration
+                switch_date: pd.Timestamp = next_timestamp(
+                    next.data.index, front.expiration
+                )
+                next_of_interest: pd.DataFrame = next.data.loc[
+                    switch_date : next.expiration
+                ]
+                continuous.data = pd.concat([continuous.data, next_of_interest])
+            case RolloverRule.OPEN_INTEREST:
+                # TODO implementare regola secondo cui al crossover in OI
+                # TODO si switcha, ma facendo attenzione ai fakeout.
+                # su questo proposito analizza i fakeout in OI fra i vari strumenti e
+                # quantomeno inserisci un primo filtro temporale (es a partire
+                #  da 10 giorni da exp accetti crossover)
+                pass

@@ -1,31 +1,43 @@
-from enum import IntEnum, unique
+from enum import IntEnum, auto, unique
 
 
 @unique
 class DayOfWeek(IntEnum):
     MON = 0
-    TUE = 1
-    WED = 2
-    THU = 3
-    FRI = 4
-    SAT = 5
-    SUN = 6
+    TUE = auto()
+    WED = auto()
+    THU = auto()
+    FRI = auto()
+    SAT = auto()
+    SUN = auto()
 
 
 @unique
 class WeekOfMonth(IntEnum):
     FIRST = 0
-    SECOND = 1
-    THIRD = 2
-    FOURTH = 3
+    SECOND = auto()
+    THIRD = auto()
+    FOURTH = auto()
 
 
 @unique
 class AssetClass(IntEnum):
-    FX = 1
-    EQUITY = 2  # STOCK
-    COMMODITY = 3
-    # DEBT = 4
-    INDEX = 5
-    CRYPTOCURRENCY = 6
-    # ALTERNATIVE = 7
+    FX = auto()
+    EQUITY = auto()  # STOCK
+    COMMODITY = auto()
+    # DEBT =auto()
+    INDEX = auto()
+    CRYPTOCURRENCY = auto()
+    # ALTERNATIVE =auto()
+
+
+@unique
+class RolloverRule(IntEnum):
+    EXPIRY = auto()
+    OPEN_INTEREST = auto()
+
+
+@unique
+class FuturesContractType(IntEnum):
+    INDIVIDUAL = auto()
+    CONTINUOUS = auto()
