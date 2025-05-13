@@ -38,15 +38,6 @@ def read_text(path: str, preset: dict | None = None) -> pd.DataFrame:
     if preset is None:
         preset = {}
 
-    # In case its a folder returns a list of dataframes
-    if path.is_dir():
-        data_files = list(path.glob("*.csv")) + list(path.glob("*.txt"))
-        if not data_files:
-            raise FileNotFoundError(f"No CSV or TXT files found in directory: {path}")
-
-        out = [pd.read_csv(data_file, **preset) for data_file in data_files]
-    else:
-        # If path is a file, load the single CSV file
-        out = pd.read_csv(path, **preset)
+    out = pd.read_csv(path, **preset)
 
     return out

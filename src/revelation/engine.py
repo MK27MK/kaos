@@ -1,19 +1,21 @@
 # attualmente lo scrivo col backtesting in testa
-from data.data import Universe
-from strategy import Strategy
-from risk import Portfolio
+from revelation.data.data import Universe
+from revelation.risk import Portfolio
+from revelation.strategy import Strategy
 
 
 class Engine:
     def __init__(
         self,
         universe: Universe,
-        # in verita non stratey ma subclass
-        strategy: Strategy | list[Strategy],
+        # FIXME in verita non stratey ma subclass
+        # TODO classe tradingPlan con il portfolio personale
+        strategies: list[Strategy],
         portfolio: Portfolio,
         # findings table... (potrei legarlo direttaemtne a strategy/study)
     ):
-        pass
+
+        self.universe = universe
 
     def run(self):
         while True:

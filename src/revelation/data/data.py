@@ -2,6 +2,7 @@ import re
 from pathlib import Path
 
 import pandas as pd
+from numpy import isin
 
 from revelation.data.enums import AssetClass, FuturesContractType, RolloverRule
 from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
@@ -20,8 +21,12 @@ class FuturesContract(Instrument):
 
     # allows an arbitrary long product name, one char for month code and
     # 2-4 chars for year
-    _RE = re.compile(
+    _RE_INDIVIDUAL = re.compile(
         r"^(?P<product>[A-Z0-9]+)(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{2,4})$",
+        re.IGNORECASE,
+    )
+    _RE_CONTINUOUS = re.compile(
+        r"^(?P<product>[A-Z0-9]+)(?P<series>\d+)!$",
         re.IGNORECASE,
     )
 
@@ -29,41 +34,54 @@ class FuturesContract(Instrument):
         self,
         asset_class: AssetClass,
         contract_code: str,  # i.e. 6EM2025, ESH2020
-        activation: pd.Timestamp | None = None,
-        expiration: pd.Timestamp | None = None,
+        type: FuturesContractType = FuturesContractType.INDIVIDUAL,
+        activation: pd.Timestamp | str | None = "infer",
+        expiration: pd.Timestamp | str | None = "infer",
         # NOTE per adesso pensiamo solo a D candlestick data
         data: pd.DataFrame | None = None,
-        type: FuturesContractType = FuturesContractType.INDIVIDUAL,
     ):
         super().__init__(asset_class)
 
         # contract code parsing ----------------------------------------
         # TODO aggiungi logica di differenziazione individual e continuous
         code = contract_code.upper()
-        parsed = self._RE.match(code)
+        pattern = (
+            self._RE_INDIVIDUAL
+            if type == FuturesContractType.INDIVIDUAL
+            else self._RE_CONTINUOUS
+        )
+        parsed = pattern.match(code)
         if not parsed:
             raise ValueError(f"Failed to parse contract code: {code}")
 
         self.product_code: str = parsed["product"]  # ex. 6E, ES, ZN
-        self.month_code: str = parsed["month"]  # ex. H, M, U, Z
+
+        # NOTE valuta di inizializzarlo a None
+        if type == FuturesContractType.INDIVIDUAL:
+            self.month_code: str = parsed["month"]  # ex. H, M, U, Z
         # --------------------------------------------------------------
 
-        self.asset_class = asset_class
+        self.asset_class: AssetClass = asset_class
         self.contract_code: str = contract_code
+
+        # expiration and activation ------------------------------------
         self.activation: pd.Timestamp = (
-            activation  # NOTE mi importa meno della scadenza,
+            activation if isinstance(activation, pd.Timestamp) else data.index[0]
         )
-        # puoi anche usare la prima riga del df/ usarlo come validazione se trovi
-        # la regole ufficiale
         self.expiration: pd.Timestamp = (
             expiration
-            if expiration is not None
-            else self._get_expiration(parsed["year"])
+            # TODO gestici None
+            if isinstance(expiration, pd.Timestamp)
+            else data.index[-1]
         )
 
+        # contract data ------------------------------------------------
         self.data = data
 
-    # helpers-----------------------------------------------------------
+    # ------------------------------------------------------------------
+    # methods
+    # ------------------------------------------------------------------
+
     def _get_expiration(self, year: str) -> pd.Timestamp:
         # NOTE ci sono eccezioni in base a prodotto, es: CAD # https://www.cmegroup.com/rulebook/CME/III/250/252/252.pdf
         # TODO valida la scadenza usando la data dell'ultima riga del df
@@ -82,9 +100,12 @@ class FuturesContract(Instrument):
         )
         pass
 
+    # ------------------------------------------------------------------
+    # magic methods
+    # ------------------------------------------------------------------
 
-class FuturesProduct(Instrument):
-    pass
+    def __repr__(self) -> str:
+        return self.contract_code
 
 
 # I may actually use a list[Instrument]
@@ -98,8 +119,6 @@ class Universe:
 # ----------------------------------------------------------------------
 
 
-# devo avere la timeline dei contratti allineati per bene per strumento,
-# bisogna gestire il rollover
 def sort_contracts(contracts: list[FuturesContract]) -> None:
     """
     Sorts in-place a given list of Futures contracts based on expiry year
@@ -119,11 +138,14 @@ def next_timestamp(index: pd.DatetimeIndex, ts: pd.Timestamp) -> pd.Timestamp | 
     return None
 
 
-def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> pd.DataFrame:
+def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesContract:
     """
     Contract merging changes based on the timeframe of the candle provided.
     DAILY:
     INTRADAY:
+
+    ## Returns
+    A FuturesContract object with continuous data
     """
     # sort contracts based on their expiry
     sort_contracts(contracts)
@@ -136,29 +158,32 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> pd.DataF
         data=pd.DataFrame(),
         type=FuturesContractType.CONTINUOUS,
     )
-    for i, front in enumerate(contracts):
-        # FIXME causa index out of range se non sistemi
+    # NOTE considera si spostare `start_date` qui
+    # dont loop over last contract bc its concatenated by previous loop
+    for i in range(len(contracts) - 1):
+        front: FuturesContract = contracts[i]
         next: FuturesContract = contracts[i + 1]
 
         match rollover_rule:
-            # concatenates to continuous from the day after expiration
-            # to
             case RolloverRule.EXPIRY:
-                raise NotImplementedError(
-                    "siccome non mi serve per adesso non ci lavoro."
-                )
                 # finds the index immediately after front.expiration
-                switch_date: pd.Timestamp = next_timestamp(
-                    next.data.index, front.expiration
+                start_date: pd.Timestamp = (
+                    next_timestamp(next.data.index, front.expiration)
+                    if i != 0  # start from the beginning of the first contract
+                    else front.activation
                 )
-                next_of_interest: pd.DataFrame = next.data.loc[
-                    switch_date : next.expiration
-                ]
-                continuous.data = pd.concat([continuous.data, next_of_interest])
+                # TODO separa EXPIRY_BEFORE e EXPIRY_AFTER
+                # concatenates to continuous from the day after expiration to
+                # the next expiration
+                continuous.data = pd.concat(
+                    [continuous.data, next.data.loc[start_date : next.expiration]]
+                )
             case RolloverRule.OPEN_INTEREST:
                 # TODO implementare regola secondo cui al crossover in OI
                 # TODO si switcha, ma facendo attenzione ai fakeout.
                 # su questo proposito analizza i fakeout in OI fra i vari strumenti e
                 # quantomeno inserisci un primo filtro temporale (es a partire
                 #  da 10 giorni da exp accetti crossover)
-                pass
+                raise NotImplementedError("")
+
+    return continuous

@@ -5,5 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "bokeh>=3.7.2",
+    "lightweight-charts>=2.1",
+    "nautilus-trader>=1.217.0",
+    "nbformat>=5.10.4",
     "pandas>=2.2.3",
+    "plotly>=6.0.1",
 ]
