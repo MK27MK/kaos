@@ -1,5 +1,7 @@
 from enum import IntEnum, auto, unique
 
+# TODO considera di creare una BaseEnum
+
 
 @unique
 class DayOfWeek(IntEnum):
@@ -21,6 +23,11 @@ class WeekOfMonth(IntEnum):
 
 
 @unique
+class MonthOfYear(IntEnum):
+    pass
+
+
+@unique
 class AssetClass(IntEnum):
     FX = auto()
     EQUITY = auto()  # STOCK
@@ -29,6 +36,13 @@ class AssetClass(IntEnum):
     INDEX = auto()
     CRYPTOCURRENCY = auto()
     # ALTERNATIVE =auto()
+
+
+@unique
+class Sector(IntEnum):
+    # FOOD
+    # FINANCE ...
+    pass
 
 
 @unique
@@ -41,3 +55,10 @@ class RolloverRule(IntEnum):
 class FuturesContractType(IntEnum):
     INDIVIDUAL = auto()
     CONTINUOUS = auto()
+
+
+@unique
+class PositionSide(IntEnum):
+    # NONE = auto()
+    BUY = auto()
+    SELL = auto()
