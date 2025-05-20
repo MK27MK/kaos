@@ -1,8 +1,8 @@
 import re
+from abc import ABC, abstractmethod
 from pathlib import Path
 
 import pandas as pd
-from numpy import isin
 
 from revelation.data.enums import AssetClass, FuturesContractType, RolloverRule
 from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
@@ -12,9 +12,15 @@ from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
 # ----------------------------------------------------------------------
 
 
-class Instrument:
-    def __init__(self, asset_class: AssetClass):
-        pass
+class Data(ABC):
+    pass
+
+
+class Instrument(Data):
+    @abstractmethod
+    def __init__(self, asset_class: AssetClass, data: dict[str, pd.DataFrame]):
+        self.asset_class = asset_class
+        self.data = data
 
 
 class FuturesContract(Instrument):
@@ -34,13 +40,13 @@ class FuturesContract(Instrument):
         self,
         asset_class: AssetClass,
         contract_code: str,  # i.e. 6EM2025, ESH2020
+        # NOTE daily obbligatori per il funzionamento attualmente
+        data: dict[str, pd.DataFrame],
         type: FuturesContractType = FuturesContractType.INDIVIDUAL,
-        activation: pd.Timestamp | str | None = "infer",
-        expiration: pd.Timestamp | str | None = "infer",
-        # NOTE per adesso pensiamo solo a D candlestick data
-        data: pd.DataFrame | None = None,
+        activation: pd.Timestamp | None = None,
+        expiration: pd.Timestamp | None = None,
     ):
-        super().__init__(asset_class)
+        super().__init__(asset_class, data)
 
         # contract code parsing ----------------------------------------
         # TODO aggiungi logica di differenziazione individual e continuous
@@ -65,14 +71,12 @@ class FuturesContract(Instrument):
         self.contract_code: str = contract_code
 
         # expiration and activation ------------------------------------
+        # TODO rendi piu robusto
         self.activation: pd.Timestamp = (
-            activation if isinstance(activation, pd.Timestamp) else data.index[0]
+            activation if isinstance(activation, pd.Timestamp) else data["D"].index[0]
         )
         self.expiration: pd.Timestamp = (
-            expiration
-            # TODO gestici None
-            if isinstance(expiration, pd.Timestamp)
-            else data.index[-1]
+            expiration if isinstance(expiration, pd.Timestamp) else data["D"].index[-1]
         )
 
         # contract data ------------------------------------------------
@@ -110,8 +114,8 @@ class FuturesContract(Instrument):
 
 # I may actually use a list[Instrument]
 # avere un unico time index anziche 3 mila tabelle
-class Universe:
-    pass
+# class Universe:
+#     def __init__(self, instruments: list[Instrument]):
 
 
 # ----------------------------------------------------------------------
@@ -168,7 +172,7 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesC
             case RolloverRule.EXPIRY:
                 # finds the index immediately after front.expiration
                 start_date: pd.Timestamp = (
-                    next_timestamp(next.data.index, front.expiration)
+                    next_timestamp(next.data["D"].index, front.expiration)
                     if i != 0  # start from the beginning of the first contract
                     else front.activation
                 )
@@ -176,7 +180,7 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesC
                 # concatenates to continuous from the day after expiration to
                 # the next expiration
                 continuous.data = pd.concat(
-                    [continuous.data, next.data.loc[start_date : next.expiration]]
+                    [continuous.data, next.data["D"].loc[start_date : next.expiration]]
                 )
             case RolloverRule.OPEN_INTEREST:
                 # TODO implementare regola secondo cui al crossover in OI
