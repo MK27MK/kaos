@@ -1,14 +1,20 @@
 import re
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from pathlib import Path
 
 import pandas as pd
 
-from revelation.data.enums import AssetClass, FuturesContractType, RolloverRule
+from revelation.data.enums import (
+    AssetClass,
+    DataSource,
+    FuturesContractType,
+    RolloverRule,
+)
 from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
 
 # ----------------------------------------------------------------------
-# instruments classes
+# Data
 # ----------------------------------------------------------------------
 
 
@@ -16,11 +22,44 @@ class Data(ABC):
     pass
 
 
-class Instrument(Data):
+@dataclass
+class ReferenceData(Data):
+    """
+    Reference data is metadata describing instruments and entities.
+    Some examples: contract size, ticker, expiration date, increment.
+    https://learning.oreilly.com/library/view/financial-data-engineering/9781098159986/
+    """
+
+    source: DataSource
+    asset_class: AssetClass
+    # porta activation cazzi e mazzi qui
+    # TODO classe FuturesReferenceData?
+
+
+# ----------------------------------------------------------------------
+# instruments classes
+# ----------------------------------------------------------------------
+
+
+class Instrument:
     @abstractmethod
-    def __init__(self, asset_class: AssetClass, data: dict[str, pd.DataFrame]):
-        self.asset_class = asset_class
-        self.data = data
+    def __init__(
+        self,
+        reference_data: ReferenceData,
+        market_data: dict[str, pd.DataFrame],
+    ):
+        self.reference_data = reference_data
+        self.market_data = market_data
+
+    @property
+    def asset_class(self) -> AssetClass:
+        """Asset class of the instrument."""
+        return self.reference_data.asset_class
+
+    @property
+    def source(self) -> DataSource:
+        """Source of the instrument's market data."""
+        return self.reference_data.source
 
 
 class FuturesContract(Instrument):
@@ -38,15 +77,15 @@ class FuturesContract(Instrument):
 
     def __init__(
         self,
-        asset_class: AssetClass,
-        contract_code: str,  # i.e. 6EM2025, ESH2020
+        reference_data: ReferenceData,
         # NOTE daily obbligatori per il funzionamento attualmente
-        data: dict[str, pd.DataFrame],
+        market_data: dict[str, pd.DataFrame],
+        contract_code: str,  # i.e. 6EM2025, ESH2020
         type: FuturesContractType = FuturesContractType.INDIVIDUAL,
         activation: pd.Timestamp | None = None,
         expiration: pd.Timestamp | None = None,
     ):
-        super().__init__(asset_class, data)
+        super().__init__(reference_data, market_data)
 
         # contract code parsing ----------------------------------------
         # TODO aggiungi logica di differenziazione individual e continuous
@@ -61,26 +100,24 @@ class FuturesContract(Instrument):
             raise ValueError(f"Failed to parse contract code: {code}")
 
         self.product_code: str = parsed["product"]  # ex. 6E, ES, ZN
+        self.contract_code: str = contract_code  # i.e. 6EM2025, ESH2020
 
         # NOTE valuta di inizializzarlo a None
         if type == FuturesContractType.INDIVIDUAL:
             self.month_code: str = parsed["month"]  # ex. H, M, U, Z
-        # --------------------------------------------------------------
-
-        self.asset_class: AssetClass = asset_class
-        self.contract_code: str = contract_code
 
         # expiration and activation ------------------------------------
         # TODO rendi piu robusto
         self.activation: pd.Timestamp = (
-            activation if isinstance(activation, pd.Timestamp) else data["D"].index[0]
+            activation
+            if isinstance(activation, pd.Timestamp)
+            else market_data["D"].index[0]
         )
         self.expiration: pd.Timestamp = (
-            expiration if isinstance(expiration, pd.Timestamp) else data["D"].index[-1]
+            expiration
+            if isinstance(expiration, pd.Timestamp)
+            else market_data["D"].index[-1]
         )
-
-        # contract data ------------------------------------------------
-        self.data = data
 
     # ------------------------------------------------------------------
     # methods
@@ -155,11 +192,11 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesC
     sort_contracts(contracts)
 
     continuous: FuturesContract = FuturesContract(
-        asset_class=contracts[0].asset_class,
+        reference_data=contracts[0].reference_data,
         contract_code=contracts[0].product_code + "1!",
         activation=contracts[0].activation,
         expiration=contracts[-1].expiration,
-        data=pd.DataFrame(),
+        market_data=pd.DataFrame(),
         type=FuturesContractType.CONTINUOUS,
     )
     # NOTE considera si spostare `start_date` qui
@@ -172,15 +209,18 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesC
             case RolloverRule.EXPIRY:
                 # finds the index immediately after front.expiration
                 start_date: pd.Timestamp = (
-                    next_timestamp(next.data["D"].index, front.expiration)
+                    next_timestamp(next.market_data["D"].index, front.expiration)
                     if i != 0  # start from the beginning of the first contract
                     else front.activation
                 )
                 # TODO separa EXPIRY_BEFORE e EXPIRY_AFTER
                 # concatenates to continuous from the day after expiration to
                 # the next expiration
-                continuous.data = pd.concat(
-                    [continuous.data, next.data["D"].loc[start_date : next.expiration]]
+                continuous.market_data = pd.concat(
+                    [
+                        continuous.market_data,
+                        next.market_data["D"].loc[start_date : next.expiration],
+                    ]
                 )
             case RolloverRule.OPEN_INTEREST:
                 # TODO implementare regola secondo cui al crossover in OI

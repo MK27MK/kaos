@@ -2,6 +2,8 @@ from enum import IntEnum, auto, unique
 
 # TODO considera di creare una BaseEnum
 
+# time -----------------------------------------------------------------
+
 
 @unique
 class DayOfWeek(IntEnum):
@@ -27,6 +29,9 @@ class MonthOfYear(IntEnum):
     pass
 
 
+# data -----------------------------------------------------------------
+
+
 @unique
 class AssetClass(IntEnum):
     FX = auto()
@@ -46,6 +51,13 @@ class Sector(IntEnum):
 
 
 @unique
+class DataSource(IntEnum):
+    FIRSTRATE = auto()
+    TRADINGVIEW = auto()
+    DATABENTO = auto()
+
+
+@unique
 class RolloverRule(IntEnum):
     EXPIRY = auto()
     OPEN_INTEREST = auto()
@@ -55,6 +67,9 @@ class RolloverRule(IntEnum):
 class FuturesContractType(IntEnum):
     INDIVIDUAL = auto()
     CONTINUOUS = auto()
+
+
+# position -------------------------------------------------------------
 
 
 @unique
