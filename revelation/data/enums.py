@@ -68,6 +68,14 @@ class FuturesContractType(IntEnum):
     INDIVIDUAL = auto()
     CONTINUOUS = auto()
 
+@unique
+class MarketDataType(IntEnum):
+    OHLC = auto()
+    TICK = auto()
+    
+
+
+
 
 # position -------------------------------------------------------------
 

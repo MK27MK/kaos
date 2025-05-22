@@ -59,8 +59,6 @@ class FuturesContract(Instrument):
             market_data (MarketData): _description_
         """
         super().__init__(reference_data, market_data)
-        self.reference_data = reference_data
-        self.market_data = market_data
 
         # activation and expiration ------------------------------------
         # TODO rendi piu robusto
@@ -138,12 +136,6 @@ class FuturesContract(Instrument):
 
     def __repr__(self) -> str:
         return self.contract_code
-
-
-# I may actually use a list[Instrument]
-# avere un unico time index anziche 3 mila tabelle
-# class Universe:
-#     def __init__(self, instruments: list[Instrument]):
 
 
 # ----------------------------------------------------------------------

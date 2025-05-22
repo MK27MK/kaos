@@ -13,32 +13,7 @@ from revelation.data.enums import AssetClass, DataSource, FuturesContractType
 
 
 class Data:
-    @staticmethod
-    @final
-    def get_csv(path_to_file: Path, preset: dict = {}) -> pd.DataFrame:
-        """
-        Permette di leggere un solo file o una cartella intera di .csv
-        o .txt, restituendo il/i dataframe corrispondenti.
-        Consente l'utilizzo di un preset per avere dei settaggi già
-        pronti.
-
-        Per renderla più efficiente valuta anche polars.
-        https://chatgpt.com/share/682defd6-4dac-8000-8a63-1211050b294d
-        """
-        if not path_to_file.exists():
-            raise FileNotFoundError(f"Path not found: {path_to_file}")
-
-        # ------------------------------------------------------------------
-        # Copia per non mutare l'oggetto originale
-        preset = {} if preset is None else preset.copy()
-        tz: str | None = preset.pop("tz", None)
-        out: pd.DataFrame = pd.read_csv(path_to_file, **preset)
-
-        # localizes index if data's timezone is specified
-        if tz:
-            out.index = out.index.tz_localize(tz)
-
-        return out
+    pass
 
 
 # class MarketData(Data):
@@ -98,5 +73,5 @@ class FuturesReferenceData(ReferenceData):
 
 @dataclass
 class MarketData(Data):
-    ohlc: dict[str, pd.DataFrame]
+    # ohlc: dict[str, pd.DataFrame]
     # other aggregations
