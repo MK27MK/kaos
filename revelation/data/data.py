@@ -75,3 +75,4 @@ class FuturesReferenceData(ReferenceData):
 class MarketData(Data):
     # ohlc: dict[str, pd.DataFrame]
     # other aggregations
+    pass

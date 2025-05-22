@@ -7,7 +7,7 @@ from revelation.data.enums import DayOfWeek, WeekOfMonth
 # ----------------------------------------------------------------------
 
 MONTH_CODES = "FGHJKMNQUVXZ"
-STANDARD_TIMEZONE = "UTC"
+STANDARD_TIMEZONE = "America/New_York"  # "UTC"
 
 # ----------------------------------------------------------------------
 # functions
