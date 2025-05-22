@@ -19,25 +19,15 @@ class CSVPresets:
         ],
         parse_dates=["timestamp"],
         index_col="timestamp",
+        tz="America/New_York",
+        # All data is in US Eastern Timezone (ie EST/EDT depending
+        # on the time of year) except for crypto data which is in UTC.
+        # https://firstratedata.com/about/FAQ
     )
 
 
-def read_text(path: str, preset: dict | None = None) -> pd.DataFrame:
-    """
-    Permette di leggere un solo file o una cartella intera di .csv
-    o .txt, restituendo il/i dataframe corrispondenti.
-    Consente l'utilizzo di un preset per avere dei settaggi già
-    pronti.
-    """
-
-    # converts the str received to a path and check its existance
-    path: Path = Path(path)
-    if not path.exists():
-        raise FileNotFoundError(f"Path not found: {path}")
-
-    if preset is None:
-        preset = {}
-
-    out = pd.read_csv(path, **preset)
-
-    return out
+def _collect_files(directory: Path) -> list[Path]:
+    """Restituisce tutti i .csv e .txt presenti nella dir (non ricorsivo)."""
+    csv_files = list(directory.glob("*.csv"))
+    txt_files = list(directory.glob("*.txt"))
+    return sorted(csv_files + txt_files)
