@@ -1,4 +1,9 @@
+import holoviews as hv
+import hvplot.pandas
 import lightweight_charts as lw
+import pandas as pd
+
+hv.extension("bokeh")
 
 
 def set_chart(df):
@@ -27,6 +32,30 @@ def set_chart(df):
     chart.set(df)
 
     return chart
+
+
+hv.renderer("bokeh").theme = "dark_minimal"  # built-in Bokeh theme
+
+
+def hvplot_ohlc(data: pd.DataFrame, title: str | None = None, precision: int = 5):
+    style = dict()
+    """Takes a df with a datetime index and ohlc columns"""
+    return data.hvplot.ohlc(
+        pos_color="rgba(120, 123, 134, 100)",
+        neg_color="rgba(42, 46, 57, 100)",
+        bgcolor="#b2b5be",
+        min_height=200,
+        responsive=True,
+        aspect=4 / 3,
+        autorange="y",
+        title=title,
+        yaxis="right",
+        yformatter=f"%.{precision}f",  # use intrument precision
+        fontscale=0.9,
+        # colorbar=True,
+        legend="top_left",
+        # tools=["reset"],
+    ).opts(**style)
 
 
 # def label_down(chart):
