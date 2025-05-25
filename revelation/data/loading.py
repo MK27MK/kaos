@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 from typing import Literal
 
@@ -38,11 +39,9 @@ class CSVPresets:
     )
 
 
-def _collect_files(directory: Path) -> list[Path]:
-    """Restituisce tutti i .csv e .txt presenti nella dir (non ricorsivo)."""
-    csv_files = list(directory.glob("*.csv"))
-    txt_files = list(directory.glob("*.txt"))
-    return sorted(csv_files + txt_files)
+# ----------------------------------------------------------------------
+# Catalog
+# ----------------------------------------------------------------------
 
 
 class Catalog:
@@ -56,7 +55,7 @@ class Catalog:
 
     @staticmethod
     # per ora cosi, poi implementare i metodi per prendere direttamente i dati
-    def get_csv(path_to_file: Path, preset: dict = {}) -> pd.DataFrame:
+    def get_csv(file: Path, preset: dict = {}) -> pd.DataFrame:
         """
         Permette di leggere un solo file o una cartella intera di .csv
         o .txt, restituendo il/i dataframe corrispondenti.
@@ -66,20 +65,71 @@ class Catalog:
         Per renderla più efficiente valuta anche polars.
         https://chatgpt.com/share/682defd6-4dac-8000-8a63-1211050b294d
         """
-        if not path_to_file.exists():
-            raise FileNotFoundError(f"Path not found: {path_to_file}")
+        if not file.exists():
+            raise FileNotFoundError(f"File not found: {file}")
 
         # ------------------------------------------------------------------
         # Copia per non mutare l'oggetto originale
         preset = {} if preset is None else preset.copy()
         tz: str | None = preset.pop("tz", None)
-        out: pd.DataFrame = pd.read_csv(path_to_file, **preset)
+        out: pd.DataFrame = pd.read_csv(file, **preset)
 
         # localizes index if data's timezone is specified
         if tz:
             out.index = out.index.tz_localize(tz)
 
         return out
+
+    def get_csvs(
+        self,
+        directory: Path,
+        preset: dict = {},
+        pattern: re.Pattern = re.compile(r".*"),
+    ) -> tuple[pd.DataFrame]:
+
+        if not directory.exists():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+
+        files: list[Path] = self._list_matching_files(directory, pattern)
+        if not files:
+            print(f"No files found matching pattern: {pattern}")
+
+        return tuple(self.get_csv(file, preset) for file in files)
+
+    # @staticmethod
+    # def _collect_files(directory: Path, symbol: str = "") -> list[Path]:
+    #     """R"""
+    #     csv_files = list(directory.glob(f"{symbol}*.csv"))
+    #     txt_files = list(directory.glob(f"{symbol}*.txt"))
+    #     return sorted(csv_files + txt_files)
+
+    @staticmethod
+    def _list_matching_files(directory: Path, pattern: re.Pattern) -> list[Path]:
+        base = Path(directory).expanduser().resolve()
+        return [path for path in base.iterdir() if pattern.match(path.name)]
+
+
+# ----------------------------------------------------------------------
+# functions
+# ----------------------------------------------------------------------
+
+
+def regex_pattern(
+    symbols: list[str],
+    years: list[int],
+    month_codes: str,
+    extension: list[str] = [".csv", ".txt"],
+    timeframe: str = "1min",
+) -> re.Pattern:
+    # TODO aggiungi parametro format/data source per il formato della regex
+    # in base alla sorgente
+    sym = "|".join(map(re.escape, symbols))
+    year = "|".join(f"{y:02d}" for y in years)
+    month = f"[{re.escape(month_codes)}]"
+    ext = "|".join(ext.lstrip(".").lower() for ext in extension)
+
+    pattern = rf"^({sym})_({month})({year})_({timeframe})\.({ext})$"
+    return re.compile(pattern, re.IGNORECASE)
 
 
 def firstrate_dirname(
@@ -101,3 +151,20 @@ def firstrate_filename(
         f"{product}_{month_code}{year % 2000}_{multiplier}{resolution}{extension}"
     )
     return filename
+
+
+if __name__ == "__main__":
+    catalog = Catalog()
+    pattern = regex_pattern(
+        symbols=["E6"],
+        years=[24],
+        month_codes="HMUZ",
+    )
+
+    dfs = catalog.get_csvs(
+        catalog._raw_directory / "csv/firstrate" / firstrate_dirname(resolution="m"),
+        preset=CSVPresets.FIRSTRATE,
+        pattern=pattern,
+    )
+    for df in dfs:
+        print(df.head())

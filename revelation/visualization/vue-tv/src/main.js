@@ -1,4 +1,6 @@
 import { createApp } from "vue";
+// root component imported from a SFC
 import App from "./App.vue";
 
-createApp(App).mount("#app");
+const app = createApp(App);
+app.mount("#app"); // returns the root component instance

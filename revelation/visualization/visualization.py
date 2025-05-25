@@ -62,7 +62,7 @@ def hvplot_ohlc(
         pos_color="rgba(120, 123, 134, 100)",
         neg_color="rgba(42, 46, 57, 100)",
         bgcolor="#b2b5be",
-        min_height=200,
+        min_height=100,
         responsive=True,
         aspect=4 / 3,
         autorange="y",
