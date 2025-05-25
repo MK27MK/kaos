@@ -1,7 +1,7 @@
 import os
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Literal, overload
 
 import pandas as pd
 from dotenv import load_dotenv
@@ -80,6 +80,13 @@ class Catalog:
 
         return out
 
+    @overload
+    def get_csvs(
+        self,
+        directory: Path,
+        preset: dict = {},
+    ) -> tuple[pd.DataFrame]: ...
+
     def get_csvs(
         self,
         directory: Path,
@@ -156,7 +163,7 @@ def firstrate_filename(
 if __name__ == "__main__":
     catalog = Catalog()
     pattern = regex_pattern(
-        symbols=["E6"],
+        symbols=["E6", "NQ"],
         years=[24],
         month_codes="HMUZ",
     )

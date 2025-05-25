@@ -62,8 +62,8 @@ def subsample_ohlc(
             "volume": "sum",
         }
     )
-    return sampled
     # non considera il volume, rivedi
+    # removes na rows since there are many times with 0 volume, so no data.
     return (
         sampled.dropna(subset=["open", "high", "low", "close"], how="all")
         if dropna_rows
