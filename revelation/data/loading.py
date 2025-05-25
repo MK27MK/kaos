@@ -7,6 +7,8 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from revelation.data.enums import MarketDataType
+from revelation.data.instruments import Instrument, FuturesContract
+from revelation.data.data import ReferenceData
 
 # class Universe:
 #     def __init__(self, instruments: list[Instrument]):
@@ -16,7 +18,7 @@ from revelation.data.enums import MarketDataType
 load_dotenv()
 DATA_PATH = Path(os.getenv("DATA_PATH"))
 
-
+# TODO potresti renderla interna e usare DataSource piuttosto
 class CSVPresets:
     # Preset per i file "firstrate": niente header e potenziale colonna open_interest.
     FIRSTRATE = dict(
@@ -80,13 +82,6 @@ class Catalog:
 
         return out
 
-    @overload
-    def get_csvs(
-        self,
-        directory: Path,
-        preset: dict = {},
-    ) -> tuple[pd.DataFrame]: ...
-
     def get_csvs(
         self,
         directory: Path,
@@ -110,10 +105,23 @@ class Catalog:
     #     txt_files = list(directory.glob(f"{symbol}*.txt"))
     #     return sorted(csv_files + txt_files)
 
+    # NOTE aggiungere parametro per il tipo di strumento?
+    # poi verifica con isinstance, cosi da popolare correttamente referencedata
+
+    def get_instrument(file: Path, preset: dict = {}) -> Instrument:
+        raise NotImplementedError()
+        df = self.get_csv(file, preset)
+        reference_data = ReferenceData(source=...,
+        asset_class=AssetClass.FX,
+        )
+
+
+
     @staticmethod
     def _list_matching_files(directory: Path, pattern: re.Pattern) -> list[Path]:
         base = Path(directory).expanduser().resolve()
-        return [path for path in base.iterdir() if pattern.match(path.name)]
+        # TODO forse sorted semplice non va bene, in ogni caso la funzione fa cacare
+        return sorted([path for path in base.iterdir() if pattern.match(path.name)], path.stem)
 
 
 # ----------------------------------------------------------------------
