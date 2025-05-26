@@ -76,9 +76,9 @@ class FuturesContract(Instrument):
     # ------------------------------------------------------------------
 
     @property
-    def contract_code(self) -> str:
+    def symbol(self) -> str:
         """Contract code of the instrument (e.g. 6EM2025, ESH2020)."""
-        return self.reference_data.contract_code
+        return self.reference_data.symbol
 
     @property
     def type(self) -> FuturesContractType:
@@ -137,7 +137,7 @@ class FuturesContract(Instrument):
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return f"Futures contract: {self.contract_code}"
+        return f"Futures contract: {self.symbol}"
 
 
 # ----------------------------------------------------------------------
@@ -179,7 +179,7 @@ def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesC
 
     continuous: FuturesContract = FuturesContract(
         reference_data=contracts[0].reference_data,
-        contract_code=contracts[0].product_code + "1!",
+        symbol=contracts[0].product_code + "1!",
         activation=contracts[0].activation,
         expiration=contracts[-1].expiration,
         market_data={"D": pd.DataFrame()},

@@ -53,7 +53,7 @@ class CSVPreset:
 # ----------------------------------------------------------------------
 
 "6E-M-2024.CME"
-"{contract_code}-{month_code}-{year}-{multiplier}"
+"{product_code}-{month_code}-{year}-{multiplier}"
 
 
 class Catalog:
@@ -135,24 +135,29 @@ class Catalog:
         timeframes: list[str],
         is_raw_data: bool,
     ) -> FuturesContract:
-
+        """
+        Generates a FuturesContract object, allowing for multiple
+        timeframes.
+        """
         # select the right preset base on data provider
         preset: CSVPreset = self._get_csv_preset_from_provider(provider)
 
         if not is_raw_data:
             raise NotImplementedError()
 
-        # data is currently divided by tf, so you have to change folder to read it
+        # for each tf read the corresponding csv and return a dict
+        dfs: dict[str, pd.DataFrame] = {}
         for tf in timeframes:
             tf_dir: str = "1d" if tf == "1day" else "1m"
+            tf_pandas: str = "D" if tf == "1day" else "1min"  # == tf
             dir = (
                 self.raw_directory / provider.value / firstrate_dirname(tf_dir)
             )  # FIXME
             file = dir / f"{symbol.firstrate_string}_{tf}.txt"
-            df = self.get_csv(file, preset)
+            dfs[tf_pandas] = self.get_csv(file, preset)
+
         reference_data = FuturesReferenceData.from_symbol(symbol)
-        timeframe: str = "D" if "1day" in file.stem else "1min"  # FIXME
-        return FuturesContract(reference_data, {timeframe: df})
+        return FuturesContract(reference_data, dfs)
 
     def get_futures_contracts(
         self,
@@ -181,6 +186,7 @@ class Catalog:
 
     # private methods --------------------------------------------------
 
+    # def _get_timeframes(self, timeframes: list[str]) -> dict[str, pd.DataFrame]:
     @staticmethod
     def _get_csv_preset_from_provider(provider: DataProvider) -> CSVPreset:
         match provider:
@@ -269,10 +275,10 @@ if __name__ == "__main__":
         )
     )
 
-    # contracts = catalog.get_futures_contracts(
-    #     catalog.firstrate_directory("1m"),
-    #     provider=DataProvider.FIRSTRATE,
-    #     pattern=pattern,
-    # )
-    # print(*contracts, sep="\n")
-    # print(contracts[-1].market_data)
+    contracts = catalog.get_futures_contracts(
+        catalog.firstrate_directory("1m"),
+        provider=DataProvider.FIRSTRATE,
+        pattern=pattern,
+    )
+    print(*contracts, sep="\n")
+    print(contracts[-1].market_data)
