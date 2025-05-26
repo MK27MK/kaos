@@ -161,22 +161,19 @@ class Catalog:
 
     def get_futures_contracts(
         self,
-        directory: Path,
+        symbols: list[Symbol],
         provider: DataProvider,
-        pattern: re.Pattern = re.compile(r".*"),
+        timeframes: list[str],
+        is_raw_data: bool,
     ) -> list[FuturesContract]:
 
-        if not directory.exists():
-            raise FileNotFoundError(f"Directory not found: {directory}")
-
-        files: list[Path] = self._list_matching_files(directory, pattern)
-        if not files:
-            raise ValueError(
-                f"No files found matching pattern: {pattern}"
-                f"\n This is the directory: {directory}"
-            )
+        if not is_raw_data:
+            raise NotImplementedError()
         # logger.debug(files)
-        contracts = [self.get_futures_contract(file, provider) for file in files]
+        contracts = [
+            self.get_futures_contract(symbol, provider, timeframes, is_raw_data)
+            for symbol in symbols
+        ]
         sort_contracts(contracts)
         return contracts
 
@@ -265,20 +262,21 @@ def firstrate_filename(
 if __name__ == "__main__":
     catalog = Catalog()
     pattern = regex_pattern(symbols=["E6", "NQ"], years=[23, 24], month_codes="HMUZ")
+    timeframes = ["1day", "1min"]
 
     print(
         catalog.get_futures_contract(
             Symbol("E6-M-2024"),
             DataProvider.FIRSTRATE,
-            ["1day", "1min"],
+            timeframes,
             is_raw_data=True,
         )
     )
 
     contracts = catalog.get_futures_contracts(
-        catalog.firstrate_directory("1m"),
+        [Symbol("ES-H-2020"), Symbol("E6-M-2024")],
         provider=DataProvider.FIRSTRATE,
-        pattern=pattern,
+        timeframes=timeframes,
+        is_raw_data=True,
     )
     print(*contracts, sep="\n")
-    print(contracts[-1].market_data)
