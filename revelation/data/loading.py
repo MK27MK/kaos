@@ -1,15 +1,20 @@
 import os
 import re
 from pathlib import Path
+from time import asctime
 from typing import Literal, overload
 
 import pandas as pd
 from dotenv import load_dotenv
 
-from revelation.data.data import ReferenceData
-from revelation.data.enums import MarketDataType
-from revelation.data.instruments import FuturesContract, Instrument
+from revelation.data.data import FuturesReferenceData, ReferenceData
+from revelation.data.enums import AssetClass, DataSource, MarketDataType
+from revelation.data.instruments import FuturesContract, Instrument, sort_contracts
+from revelation.log_utils import get_logger
 
+# logger config
+logger = get_logger(__name__)
+# ----------------------------------------------------------------------
 # class Universe:
 #     def __init__(self, instruments: list[Instrument]):
 
@@ -20,7 +25,7 @@ DATA_PATH = Path(os.getenv("DATA_PATH"))
 
 
 # TODO potresti renderla interna e usare DataSource piuttosto
-class CSVPresets:
+class CSVPreset:
     # Preset per i file "firstrate": niente header e potenziale colonna open_interest.
     FIRSTRATE = dict(
         header=None,
@@ -99,23 +104,54 @@ class Catalog:
 
         return tuple(self.get_csv(file, preset) for file in files)
 
-    # @staticmethod
-    # def _collect_files(directory: Path, symbol: str = "") -> list[Path]:
-    #     """R"""
-    #     csv_files = list(directory.glob(f"{symbol}*.csv"))
-    #     txt_files = list(directory.glob(f"{symbol}*.txt"))
-    #     return sorted(csv_files + txt_files)
+    def get_futures_contract(
+        self, file: Path, data_source: DataSource
+    ) -> FuturesContract:
 
-    # NOTE aggiungere parametro per il tipo di strumento?
-    # poi verifica con isinstance, cosi da popolare correttamente referencedata
+        # select the right preset base on data data_source
+        preset = self._get_csv_preset_from_data_source(data_source)
 
-    def get_futures_contract(file: Path, preset: dict = {}) -> FuturesContract:
-        raise NotImplementedError()
         df = self.get_csv(file, preset)
-        reference_data = ReferenceData(
-            source=...,
-            asset_class=AssetClass.FX,
-        )
+        reference_data = FuturesReferenceData.from_string(file.stem)
+        timeframe: str = "D" if "1day" in file.stem else "1min"  # FIXME
+        return FuturesContract(reference_data, {timeframe: df})
+
+    def get_futures_contracts(
+        self,
+        directory: Path,
+        data_source: DataSource,
+        pattern: re.Pattern = re.compile(r".*"),
+    ) -> list[FuturesContract]:
+
+        if not directory.exists():
+            raise FileNotFoundError(f"Directory not found: {directory}")
+
+        files: list[Path] = self._list_matching_files(directory, pattern)
+        if not files:
+            raise ValueError(
+                f"No files found matching pattern: {pattern}"
+                f"\n This is the directory: {directory}"
+            )
+        # logger.debug(files)
+        contracts = [self.get_futures_contract(file, data_source) for file in files]
+        sort_contracts(contracts)
+        return contracts
+
+    # TODO deve anche poter prendere dati da raw e categorizzarli
+    def write(self):
+        pass
+
+    # private methods --------------------------------------------------
+
+    @staticmethod
+    def _get_csv_preset_from_data_source(data_source: DataSource) -> CSVPreset:
+        match data_source:
+            case DataSource.FIRSTRATE:
+                preset = CSVPreset.FIRSTRATE
+            case _:
+                raise ValueError(f"Unhandled data data_source: {data_source}")
+
+        return preset
 
     @staticmethod
     def _list_matching_files(directory: Path, pattern: re.Pattern) -> list[Path]:
@@ -125,6 +161,16 @@ class Catalog:
             [path for path in base.iterdir() if pattern.match(path.name)],
             key=lambda p: p.stem,
         )
+
+    # @staticmethod
+    # def _collect_files(directory: Path, symbol: str = "") -> list[Path]:
+    #     """R"""
+    #     csv_files = list(directory.glob(f"{symbol}*.csv"))
+    #     txt_files = list(directory.glob(f"{symbol}*.txt"))
+    #     return sorted(csv_files + txt_files)
+
+    # NOTE aggiungere parametro per il tipo di strumento?
+    # poi verifica con isinstance, cosi da popolare correttamente referencedata
 
 
 # ----------------------------------------------------------------------
@@ -139,7 +185,7 @@ def regex_pattern(
     extension: list[str] = [".csv", ".txt"],
     timeframe: str = "1min",
 ) -> re.Pattern:
-    # TODO aggiungi parametro format/data source per il formato della regex
+    # TODO aggiungi parametro format/data data_source per il formato della regex
     # in base alla sorgente
     sym = "|".join(map(re.escape, symbols))
     year = "|".join(f"{y:02d}" for y in years)
@@ -171,18 +217,30 @@ def firstrate_filename(
     return filename
 
 
+# ----------------------------------------------------------------------
+# demonstration
+# ----------------------------------------------------------------------
+
+
 if __name__ == "__main__":
     catalog = Catalog()
     pattern = regex_pattern(
-        symbols=["E6", "NQ"],
-        years=[24],
-        month_codes="HMUZ",
+        symbols=["E6"], years=[24], month_codes="HMUZ", timeframe="1day"
+    )
+    daily_dir = (
+        catalog._raw_directory / "csv/firstrate" / firstrate_dirname(resolution="d")
     )
 
-    dfs = catalog.get_csvs(
-        catalog._raw_directory / "csv/firstrate" / firstrate_dirname(resolution="m"),
-        preset=CSVPresets.FIRSTRATE,
+    print(
+        catalog.get_futures_contract(
+            daily_dir / firstrate_filename(), DataSource.FIRSTRATE
+        )
+    )
+    dfs = catalog.get_futures_contracts(
+        daily_dir,
+        data_source=DataSource.FIRSTRATE,
         pattern=pattern,
     )
-    for df in dfs:
-        print(df.head())
+    print(dfs)
+    # for df in dfs:
+    #     print(df.head())

@@ -10,7 +10,7 @@ incluso.
 
 import pandas as pd
 
-# @dataclass
+# @dataclass(kw_only=True)
 # class OHLCVOData(MarketData):
 
 

@@ -33,9 +33,9 @@ class Instrument:
         return self.reference_data.asset_class
 
     @property
-    def source(self) -> DataSource:
+    def data_source(self) -> DataSource:
         """Source of the instrument's market data."""
-        return self.reference_data.source
+        return self.reference_data.data_source
 
 
 # FuturesContract ------------------------------------------------------
@@ -65,9 +65,9 @@ class FuturesContract(Instrument):
         # In case exp and act are not provided, first and last date
         # of the index will be used instead
         if self.activation is None:
-            self.activation = market_data["D"].index[0]
+            self.reference_data.activation = market_data["D"].index[0]
         if self.expiration is None:
-            self.expiration = market_data["D"].index[-1]
+            self.reference_data.expiration = market_data["D"].index[-1]
 
     # ------------------------------------------------------------------
     # properties
@@ -135,7 +135,7 @@ class FuturesContract(Instrument):
     # ------------------------------------------------------------------
 
     def __repr__(self) -> str:
-        return self.contract_code
+        return f"Futures contract: {self.contract_code}"
 
 
 # ----------------------------------------------------------------------

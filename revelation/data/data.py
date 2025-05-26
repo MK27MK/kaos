@@ -1,11 +1,16 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import final
+from typing import Self, final
 
 import pandas as pd
 
 from revelation.data.enums import AssetClass, DataSource, FuturesContractType
+from revelation.log_utils import get_logger
+
+# logger config
+logger = get_logger(__name__)
+# ----------------------------------------------------------------------
 
 
 class _CustomRegex:
@@ -30,7 +35,7 @@ class Data:
     pass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ReferenceData(Data):
     """
     Reference data is metadata describing instruments and entities.
@@ -38,11 +43,11 @@ class ReferenceData(Data):
     https://learning.oreilly.com/library/view/financial-data-engineering/9781098159986/
     """
 
-    source: DataSource
+    data_source: DataSource
     asset_class: AssetClass
 
 
-@dataclass  # NOTE aggiunto adesso
+@dataclass(kw_only=True)  # NOTE aggiunto adesso
 class FuturesReferenceData(ReferenceData):
     # ------------------------------------------------------------------
     contract_code: str  # i.e. 6EM2025, ESH2020
@@ -70,8 +75,28 @@ class FuturesReferenceData(ReferenceData):
         if self.type == FuturesContractType.INDIVIDUAL:
             self.month_code = parsed["month"]  # ex. H, M, U, Z
 
+    @staticmethod
+    def from_string(value: str) -> Self:
+        # FIXME implemento solo firstrate naming per ora, adottata la naming convention non sara più necessario
+        pieces: list[str] = value.split("_")
+        product_code = pieces[0]
+        month_code = pieces[1][0]
+        expiration_year = pieces[1][1:]  # NOTE inusato
+        timeframe = pieces[2]  # FIXME mettere il timeframe da qualche parte
+        contract_code = product_code + month_code + expiration_year
+        logger.warning(
+            f"contract_code: {contract_code} va sistemato,"
+            "va adottato lo standard a 4 cifre per la data, e la regex va aggiornata."
+        )
+        return FuturesReferenceData(
+            data_source=DataSource.FIRSTRATE,
+            asset_class=AssetClass.FX,
+            contract_code=contract_code,
+            type=FuturesContractType.INDIVIDUAL,
+        )
 
-@dataclass
+
+@dataclass(kw_only=True)
 class MarketData(Data):
     # ohlc: dict[str, pd.DataFrame]
     # other aggregations

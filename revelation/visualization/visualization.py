@@ -85,7 +85,7 @@ if __name__ == "__main__":
 
     from revelation.data.loading import (
         Catalog,
-        CSVPresets,
+        CSVPreset,
         firstrate_dirname,
         firstrate_filename,
     )
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         / "csv/firstrate"
         / firstrate_dirname()
         / firstrate_filename(),
-        CSVPresets.FIRSTRATE,
+        CSVPreset.FIRSTRATE,
     )
 
     chart = hvplot_ohlc(df)

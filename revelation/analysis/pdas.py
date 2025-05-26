@@ -6,7 +6,7 @@ import pandas as pd
 from revelation.analysis.enums import GapDirection
 
 
-@dataclass
+@dataclass(kw_only=True)
 class ReferencePoint(ABC):
     value: float
     timestamp: pd.Timestamp
@@ -14,7 +14,7 @@ class ReferencePoint(ABC):
     ...
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Pda(ReferencePoint):
     @staticmethod
     @abstractmethod
@@ -33,7 +33,7 @@ class Pda(ReferencePoint):
         pass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Gap(Pda):
     # NOTE potrei usare price point cosi da avere due info in un'attributo(x e y)
     gap_direction: GapDirection
@@ -48,7 +48,7 @@ class Gap(Pda):
         pass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Fvg(Gap):
     @staticmethod
     def _up_formed(data: pd.DataFrame) -> pd.Series:
