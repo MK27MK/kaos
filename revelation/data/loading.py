@@ -8,8 +8,9 @@ import pandas as pd
 from dotenv import load_dotenv
 
 from revelation.data.data import FuturesReferenceData, ReferenceData
-from revelation.data.enums import AssetClass, DataSource, MarketDataType
+from revelation.data.enums import AssetClass, DataProvider, MarketDataType
 from revelation.data.instruments import FuturesContract, Instrument, sort_contracts
+from revelation.data.symbol import Symbol
 from revelation.log_utils import get_logger
 
 # logger config
@@ -24,7 +25,7 @@ load_dotenv()
 DATA_PATH = Path(os.getenv("DATA_PATH"))
 
 
-# TODO potresti renderla interna e usare DataSource piuttosto
+# TODO potresti renderla interna e usare DataProvider piuttosto
 class CSVPreset:
     # Preset per i file "firstrate": niente header e potenziale colonna open_interest.
     FIRSTRATE = dict(
@@ -51,6 +52,9 @@ class CSVPreset:
 # Catalog
 # ----------------------------------------------------------------------
 
+"6E-M-2024.CME"
+"{contract_code}-{month_code}-{year}-{multiplier}"
+
 
 class Catalog:
     def __init__(self, directory: Path = DATA_PATH):
@@ -60,6 +64,26 @@ class Catalog:
         # put the reference data in the market directory? create a link to it?
         self._fundamental_directory = directory / "fundamental"
         self._raw_directory = directory / "raw"
+
+    # properties -------------------------------------------------------
+
+    @property
+    def directory(self) -> Path:
+        return self._directory
+
+    @property
+    def market_directory(self) -> Path:
+        return self._market_directory
+
+    @property
+    def fundamental_directory(self) -> Path:
+        return self._fundamental_directory
+
+    @property
+    def raw_directory(self) -> Path:
+        return self._raw_directory
+
+    # methods ----------------------------------------------------------
 
     @staticmethod
     # per ora cosi, poi implementare i metodi per prendere direttamente i dati
@@ -105,21 +129,35 @@ class Catalog:
         return tuple(self.get_csv(file, preset) for file in files)
 
     def get_futures_contract(
-        self, file: Path, data_source: DataSource
+        self,
+        symbol: Symbol,
+        provider: DataProvider,
+        timeframes: list[str],
+        is_raw_data: bool,
     ) -> FuturesContract:
 
-        # select the right preset base on data data_source
-        preset = self._get_csv_preset_from_data_source(data_source)
+        # select the right preset base on data provider
+        preset: CSVPreset = self._get_csv_preset_from_provider(provider)
 
-        df = self.get_csv(file, preset)
-        reference_data = FuturesReferenceData.from_string(file.stem)
+        if not is_raw_data:
+            raise NotImplementedError()
+
+        # data is currently divided by tf, so you have to change folder to read it
+        for tf in timeframes:
+            tf_dir: str = "1d" if tf == "1day" else "1m"
+            dir = (
+                self.raw_directory / provider.value / firstrate_dirname(tf_dir)
+            )  # FIXME
+            file = dir / f"{symbol.firstrate_string}_{tf}.txt"
+            df = self.get_csv(file, preset)
+        reference_data = FuturesReferenceData.from_symbol(symbol)
         timeframe: str = "D" if "1day" in file.stem else "1min"  # FIXME
         return FuturesContract(reference_data, {timeframe: df})
 
     def get_futures_contracts(
         self,
         directory: Path,
-        data_source: DataSource,
+        provider: DataProvider,
         pattern: re.Pattern = re.compile(r".*"),
     ) -> list[FuturesContract]:
 
@@ -133,7 +171,7 @@ class Catalog:
                 f"\n This is the directory: {directory}"
             )
         # logger.debug(files)
-        contracts = [self.get_futures_contract(file, data_source) for file in files]
+        contracts = [self.get_futures_contract(file, provider) for file in files]
         sort_contracts(contracts)
         return contracts
 
@@ -144,12 +182,12 @@ class Catalog:
     # private methods --------------------------------------------------
 
     @staticmethod
-    def _get_csv_preset_from_data_source(data_source: DataSource) -> CSVPreset:
-        match data_source:
-            case DataSource.FIRSTRATE:
+    def _get_csv_preset_from_provider(provider: DataProvider) -> CSVPreset:
+        match provider:
+            case DataProvider.FIRSTRATE:
                 preset = CSVPreset.FIRSTRATE
             case _:
-                raise ValueError(f"Unhandled data data_source: {data_source}")
+                raise ValueError(f"Unhandled data provider: {provider}")
 
         return preset
 
@@ -172,6 +210,9 @@ class Catalog:
     # NOTE aggiungere parametro per il tipo di strumento?
     # poi verifica con isinstance, cosi da popolare correttamente referencedata
 
+    def firstrate_directory(self, timeframe: Literal["1d", "1m"]) -> Path:
+        return self.raw_directory / "csv/firstrate" / firstrate_dirname(timeframe)
+
 
 # ----------------------------------------------------------------------
 # functions
@@ -182,24 +223,20 @@ def regex_pattern(
     symbols: list[str],
     years: list[int],
     month_codes: str,
-    extension: list[str] = [".csv", ".txt"],
-    timeframe: str = "1min",
 ) -> re.Pattern:
-    # TODO aggiungi parametro format/data data_source per il formato della regex
+    # TODO aggiungi parametro format/data provider per il formato della regex
     # in base alla sorgente
     sym = "|".join(map(re.escape, symbols))
     year = "|".join(f"{y:02d}" for y in years)
     month = f"[{re.escape(month_codes)}]"
-    ext = "|".join(ext.lstrip(".").lower() for ext in extension)
 
-    pattern = rf"^({sym})_({month})({year})_({timeframe})\.({ext})$"
+    pattern = rf"^({sym})_({month})({year}).*"
+
     return re.compile(pattern, re.IGNORECASE)
 
 
-def firstrate_dirname(
-    multiplier: str = "1", resolution: Literal["d", "m"] = "d"
-) -> str:
-    dirname = f"indi_arch_fut_{multiplier}{resolution}"
+def firstrate_dirname(timeframe: Literal["1d", "1m"]) -> str:
+    dirname = f"indi_arch_fut_{timeframe}"
     return dirname
 
 
@@ -207,13 +244,10 @@ def firstrate_filename(
     product: str = "E6",
     month_code: str = "H",
     year: int = 2024,
-    multiplier: str = "1",
-    resolution: str = "day",
+    timeframe: Literal["1d", "1m"] = "1d",
     extension: str = ".txt",
 ) -> str:
-    filename = (
-        f"{product}_{month_code}{year % 2000}_{multiplier}{resolution}{extension}"
-    )
+    filename = f"{product}_{month_code}{year % 2000}_{timeframe}{extension}"
     return filename
 
 
@@ -224,23 +258,21 @@ def firstrate_filename(
 
 if __name__ == "__main__":
     catalog = Catalog()
-    pattern = regex_pattern(
-        symbols=["E6"], years=[24], month_codes="HMUZ", timeframe="1day"
-    )
-    daily_dir = (
-        catalog._raw_directory / "csv/firstrate" / firstrate_dirname(resolution="d")
-    )
+    pattern = regex_pattern(symbols=["E6", "NQ"], years=[23, 24], month_codes="HMUZ")
 
     print(
         catalog.get_futures_contract(
-            daily_dir / firstrate_filename(), DataSource.FIRSTRATE
+            Symbol("E6-M-2024"),
+            DataProvider.FIRSTRATE,
+            ["1day", "1min"],
+            is_raw_data=True,
         )
     )
-    dfs = catalog.get_futures_contracts(
-        daily_dir,
-        data_source=DataSource.FIRSTRATE,
-        pattern=pattern,
-    )
-    print(dfs)
-    # for df in dfs:
-    #     print(df.head())
+
+    # contracts = catalog.get_futures_contracts(
+    #     catalog.firstrate_directory("1m"),
+    #     provider=DataProvider.FIRSTRATE,
+    #     pattern=pattern,
+    # )
+    # print(*contracts, sep="\n")
+    # print(contracts[-1].market_data)

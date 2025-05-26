@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     catalog = Catalog()
     df = catalog.get_csv(
-        catalog._raw_directory
+        catalog.raw_directory
         / "csv/firstrate"
         / firstrate_dirname()
         / firstrate_filename(),

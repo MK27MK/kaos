@@ -1,4 +1,4 @@
-from enum import IntEnum, auto, unique
+from enum import IntEnum, StrEnum, auto, unique
 
 # TODO considera di creare una BaseEnum
 
@@ -51,8 +51,8 @@ class Sector(IntEnum):
 
 
 @unique
-class DataSource(IntEnum):
-    FIRSTRATE = auto()
+class DataProvider(StrEnum):
+    FIRSTRATE = auto()  # returns lower-case name of the enum, e.g. 'firstrate'
     TRADINGVIEW = auto()
     DATABENTO = auto()
 

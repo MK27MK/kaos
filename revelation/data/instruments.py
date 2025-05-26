@@ -3,10 +3,10 @@ from abc import abstractmethod
 
 import pandas as pd
 
-from revelation.data.data import FuturesReferenceData, MarketData, ReferenceData
+from revelation.data.data import FuturesReferenceData, ReferenceData
 from revelation.data.enums import (
     AssetClass,
-    DataSource,
+    DataProvider,
     FuturesContractType,
     RolloverRule,
 )
@@ -22,7 +22,7 @@ class Instrument:
     def __init__(
         self,
         reference_data: ReferenceData,
-        market_data: MarketData,
+        market_data: dict[str, pd.DataFrame],
     ):
         self.reference_data = reference_data
         self.market_data = market_data
@@ -33,9 +33,9 @@ class Instrument:
         return self.reference_data.asset_class
 
     @property
-    def data_source(self) -> DataSource:
+    def provider(self) -> DataProvider:
         """Source of the instrument's market data."""
-        return self.reference_data.data_source
+        return self.reference_data.provider
 
 
 # FuturesContract ------------------------------------------------------
@@ -49,14 +49,14 @@ class FuturesContract(Instrument):
         self,
         reference_data: FuturesReferenceData,
         # NOTE daily obbligatori per il funzionamento attualmente
-        market_data: MarketData,
+        market_data: dict[str, pd.DataFrame],
     ):
         """If reference data does not provide activation and expiration dates,
         the first and last date of the index will be used instead.
 
         Args:
             reference_data (FuturesReferenceData): _description_
-            market_data (MarketData): _description_
+            market_data (dict[str, pd.DataFrame]): _description_
         """
         super().__init__(reference_data, market_data)
 
@@ -64,6 +64,8 @@ class FuturesContract(Instrument):
         # TODO rendi piu robusto
         # In case exp and act are not provided, first and last date
         # of the index will be used instead
+        if "D" not in market_data:
+            raise KeyError("Daily timeframe is required.")
         if self.activation is None:
             self.reference_data.activation = market_data["D"].index[0]
         if self.expiration is None:
@@ -103,10 +105,10 @@ class FuturesContract(Instrument):
         """Expiration date of the instrument."""
         return self.reference_data.expiration
 
-    @property
-    def ohlc(self) -> dict[str, pd.DataFrame]:
-        """OHLC data of the instrument. It may include volume and open interest."""
-        return self.market_data.ohlc
+    # @property
+    # def ohlc(self) -> dict[str, pd.DataFrame]:
+    #     """OHLC data of the instrument. It may include volume and open interest."""
+    #     return self.market_data.ohlc
 
     # ------------------------------------------------------------------
     # methods
@@ -145,10 +147,10 @@ class FuturesContract(Instrument):
 
 def sort_contracts(contracts: list[FuturesContract]) -> None:
     """
-    Sorts in-place a given list of Futures contracts based on expiry year
-    and month code"""
+    Sorts in-place a given list of Futures contracts based on product
+    code and expiration."""
 
-    contracts.sort(key=lambda contract: contract.expiration)
+    contracts.sort(key=lambda contract: (contract.product_code, contract.expiration))
 
 
 def next_timestamp(index: pd.DatetimeIndex, ts: pd.Timestamp) -> pd.Timestamp | None:

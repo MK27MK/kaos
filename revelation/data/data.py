@@ -1,11 +1,13 @@
 import re
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Self, final
 
 import pandas as pd
 
-from revelation.data.enums import AssetClass, DataSource, FuturesContractType
+from revelation.data.enums import AssetClass, DataProvider, FuturesContractType
+from revelation.data.symbol import Symbol
 from revelation.log_utils import get_logger
 
 # logger config
@@ -43,14 +45,20 @@ class ReferenceData(Data):
     https://learning.oreilly.com/library/view/financial-data-engineering/9781098159986/
     """
 
-    data_source: DataSource
+    # raw_symbol
+    provider: DataProvider
     asset_class: AssetClass
+
+    @classmethod
+    @abstractmethod
+    def from_symbol(cls, symbol: Symbol) -> Self:
+        pass
 
 
 @dataclass(kw_only=True)  # NOTE aggiunto adesso
 class FuturesReferenceData(ReferenceData):
     # ------------------------------------------------------------------
-    contract_code: str  # i.e. 6EM2025, ESH2020
+    contract_code: str  # i.e. 6EM2025, ESH2020 TODO sostituire con raw_symbol?
     type: FuturesContractType = FuturesContractType.INDIVIDUAL
     activation: pd.Timestamp | None = None
     expiration: pd.Timestamp | None = None
@@ -70,28 +78,28 @@ class FuturesReferenceData(ReferenceData):
         if not parsed:
             raise ValueError(f"Failed to parse contract code: {code}")
 
+        # assign values to the attributes skipped during init
         self.product_code = parsed["product"]  # ex. 6E, ES, ZN
-
         if self.type == FuturesContractType.INDIVIDUAL:
             self.month_code = parsed["month"]  # ex. H, M, U, Z
 
-    @staticmethod
-    def from_string(value: str) -> Self:
+    @classmethod
+    def from_symbol(cls, symbol: Symbol) -> Self:
         # FIXME implemento solo firstrate naming per ora, adottata la naming convention non sara più necessario
-        pieces: list[str] = value.split("_")
-        product_code = pieces[0]
-        month_code = pieces[1][0]
-        expiration_year = pieces[1][1:]  # NOTE inusato
-        timeframe = pieces[2]  # FIXME mettere il timeframe da qualche parte
-        contract_code = product_code + month_code + expiration_year
-        logger.warning(
-            f"contract_code: {contract_code} va sistemato,"
-            "va adottato lo standard a 4 cifre per la data, e la regex va aggiornata."
-        )
-        return FuturesReferenceData(
-            data_source=DataSource.FIRSTRATE,
+        # pieces: list[str] = symbol.split("_")
+        # product_code = pieces[0]
+        # month_code = pieces[1][0]
+        # expiration_year = pieces[1][1:]  # NOTE inusato
+        # timeframe = pieces[2]  # FIXME mettere il timeframe da qualche parte
+        # contract_code = product_code + month_code + expiration_year
+        # logger.warning(
+        #     f"contract_code: {contract_code} va sistemato,"
+        #     "va adottato lo standard a 4 cifre per la data, e la regex va aggiornata."
+        # )
+        return cls(
+            provider=DataProvider.FIRSTRATE,
             asset_class=AssetClass.FX,
-            contract_code=contract_code,
+            contract_code=symbol,
             type=FuturesContractType.INDIVIDUAL,
         )
 
