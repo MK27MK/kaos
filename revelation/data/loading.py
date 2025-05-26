@@ -6,9 +6,9 @@ from typing import Literal, overload
 import pandas as pd
 from dotenv import load_dotenv
 
-from revelation.data.enums import MarketDataType
-from revelation.data.instruments import Instrument, FuturesContract
 from revelation.data.data import ReferenceData
+from revelation.data.enums import MarketDataType
+from revelation.data.instruments import FuturesContract, Instrument
 
 # class Universe:
 #     def __init__(self, instruments: list[Instrument]):
@@ -17,6 +17,7 @@ from revelation.data.data import ReferenceData
 # FIXME forse un po a cazzo ma funziona
 load_dotenv()
 DATA_PATH = Path(os.getenv("DATA_PATH"))
+
 
 # TODO potresti renderla interna e usare DataSource piuttosto
 class CSVPresets:
@@ -108,20 +109,22 @@ class Catalog:
     # NOTE aggiungere parametro per il tipo di strumento?
     # poi verifica con isinstance, cosi da popolare correttamente referencedata
 
-    def get_instrument(file: Path, preset: dict = {}) -> Instrument:
+    def get_futures_contract(file: Path, preset: dict = {}) -> FuturesContract:
         raise NotImplementedError()
         df = self.get_csv(file, preset)
-        reference_data = ReferenceData(source=...,
-        asset_class=AssetClass.FX,
+        reference_data = ReferenceData(
+            source=...,
+            asset_class=AssetClass.FX,
         )
-
-
 
     @staticmethod
     def _list_matching_files(directory: Path, pattern: re.Pattern) -> list[Path]:
         base = Path(directory).expanduser().resolve()
         # TODO forse sorted semplice non va bene, in ogni caso la funzione fa cacare
-        return sorted([path for path in base.iterdir() if pattern.match(path.name)], path.stem)
+        return sorted(
+            [path for path in base.iterdir() if pattern.match(path.name)],
+            key=lambda p: p.stem,
+        )
 
 
 # ----------------------------------------------------------------------

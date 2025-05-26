@@ -7,6 +7,20 @@ import pandas as pd
 
 from revelation.data.enums import AssetClass, DataSource, FuturesContractType
 
+
+class _CustomRegex:
+    # allows an arbitrary long product name, one char for month code and
+    # 2-4 chars for year
+    futures_individual_contract = re.compile(
+        r"^(?P<product>[A-Z0-9]+)(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{2,4})$",
+        re.IGNORECASE,
+    )
+    futures_continuous_contract = re.compile(
+        r"^(?P<product>[A-Z0-9]+)(?P<series>\d+)!$",
+        re.IGNORECASE,
+    )
+
+
 # ----------------------------------------------------------------------
 # Data
 # ----------------------------------------------------------------------
@@ -14,9 +28,6 @@ from revelation.data.enums import AssetClass, DataSource, FuturesContractType
 
 class Data:
     pass
-
-
-# class MarketData(Data):
 
 
 @dataclass
@@ -29,21 +40,10 @@ class ReferenceData(Data):
 
     source: DataSource
     asset_class: AssetClass
-    # porta activation cazzi e mazzi qui
-    # TODO classe FuturesReferenceData?
 
 
+@dataclass  # NOTE aggiunto adesso
 class FuturesReferenceData(ReferenceData):
-    # allows an arbitrary long product name, one char for month code and
-    # 2-4 chars for year
-    _RE_INDIVIDUAL = re.compile(
-        r"^(?P<product>[A-Z0-9]+)(?P<month>[FGHJKMNQUVXZ])(?P<year>\d{2,4})$",
-        re.IGNORECASE,
-    )
-    _RE_CONTINUOUS = re.compile(
-        r"^(?P<product>[A-Z0-9]+)(?P<series>\d+)!$",
-        re.IGNORECASE,
-    )
     # ------------------------------------------------------------------
     contract_code: str  # i.e. 6EM2025, ESH2020
     type: FuturesContractType = FuturesContractType.INDIVIDUAL
@@ -57,9 +57,9 @@ class FuturesReferenceData(ReferenceData):
         # contract code parsing
         code = self.contract_code.upper()
         pattern = (
-            self._RE_INDIVIDUAL
+            _CustomRegex.futures_individual_contract
             if self.type == FuturesContractType.INDIVIDUAL
-            else self._RE_CONTINUOUS
+            else _CustomRegex.futures_continuous_contract
         )
         parsed = pattern.match(code)
         if not parsed:
