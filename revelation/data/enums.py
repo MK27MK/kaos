@@ -59,14 +59,14 @@ class DataProvider(StrEnum):
 
 @unique
 class RolloverRule(IntEnum):
-    EXPIRY = auto()
+    EXPIRY = auto() # il giorno in cui scade il contratto viene escluso e si mostra direttamente il successivo
     OPEN_INTEREST = auto()
 
 
-@unique
-class FuturesContractType(IntEnum):
-    INDIVIDUAL = auto()
-    CONTINUOUS = auto()
+# @unique
+# class FuturesContractType(IntEnum):
+#     INDIVIDUAL = auto()
+#     CONTINUOUS = auto()
 
 
 @unique

@@ -138,6 +138,7 @@ class Catalog:
         """
         Generates a FuturesContract object, allowing for multiple
         timeframes.
+        Rn use 1day and 1min ad tfs
         """
         # select the right preset base on data provider
         preset: CSVPreset = self._get_csv_preset_from_provider(provider)
@@ -156,6 +157,9 @@ class Catalog:
             file = dir / f"{symbol.firstrate_string}_{tf}.txt"
             dfs[tf_pandas] = self.get_csv(file, preset)
 
+            # crea colonna per il simbolo, utile per i continuous, NOTE vedi se spostarla
+            dfs[tf_pandas]["symbol"] = str(symbol)
+
         reference_data = FuturesReferenceData.from_symbol(symbol)
         return FuturesContract(reference_data, dfs)
 
@@ -166,6 +170,7 @@ class Catalog:
         timeframes: list[str],
         is_raw_data: bool,
     ) -> list[FuturesContract]:
+        """Rn use 1day and 1min ad tfs"""
 
         if not is_raw_data:
             raise NotImplementedError()
@@ -263,6 +268,7 @@ if __name__ == "__main__":
     catalog = Catalog()
     pattern = regex_pattern(symbols=["E6", "NQ"], years=[23, 24], month_codes="HMUZ")
     timeframes = ["1day", "1min"]
+    es_hmuz_2020 = [Symbol(f"ES-{m}-2020") for m in "HMUZ"]
 
     print(
         catalog.get_futures_contract(
@@ -274,7 +280,7 @@ if __name__ == "__main__":
     )
 
     contracts = catalog.get_futures_contracts(
-        [Symbol("ES-H-2020"), Symbol("E6-M-2024")],
+        es_hmuz_2020,
         provider=DataProvider.FIRSTRATE,
         timeframes=timeframes,
         is_raw_data=True,

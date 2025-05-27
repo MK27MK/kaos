@@ -1,12 +1,13 @@
 import re
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from itertools import product
 from pathlib import Path
 from typing import Self, final
 
 import pandas as pd
 
-from revelation.data.enums import AssetClass, DataProvider, FuturesContractType
+from revelation.data.enums import AssetClass, DataProvider, RolloverRule
 from revelation.data.symbol import Symbol
 from revelation.log_utils import get_logger
 
@@ -58,51 +59,36 @@ class ReferenceData(Data):
 @dataclass(kw_only=True)  # NOTE aggiunto adesso
 class FuturesReferenceData(ReferenceData):
     # ------------------------------------------------------------------
-    type: FuturesContractType = FuturesContractType.INDIVIDUAL
     activation: pd.Timestamp | None = None
     expiration: pd.Timestamp | None = None
     product_code: str = field(init=False)
     month_code: str | None = field(init=False, default=None)  # None if continuous
 
     def __post_init__(self):
+        # TODO aggiungi logica di differenziazione individual e continuous
         self.product_code = self.symbol.product_code
         self.month_code = self.symbol.month_code
-        # TODO aggiungi logica di differenziazione individual e continuous
-        # contract code parsing
-        # code = self.symbol.upper()
-        # pattern = (
-        #     _CustomRegex.futures_individual_contract
-        #     if self.type == FuturesContractType.INDIVIDUAL
-        #     else _CustomRegex.futures_continuous_contract
-        # )
-        # parsed = pattern.match(code)
-        # if not parsed:
-        #     raise ValueError(f"Failed to parse contract code: {code}")
-
-        # # assign values to the attributes skipped during init
-        # self.product_code = parsed["product"]  # ex. 6E, ES, ZN
-        # if self.type == FuturesContractType.INDIVIDUAL:
-        #     self.month_code = parsed["month"]  # ex. H, M, U, Z
 
     @classmethod
     def from_symbol(cls, symbol: Symbol) -> Self:
-        # FIXME implemento solo firstrate naming per ora, adottata la naming convention non sara più necessario
-        # pieces: list[str] = symbol.split("_")
-        # product_code = pieces[0]
-        # month_code = pieces[1][0]
-        # expiration_year = pieces[1][1:]  # NOTE inusato
-        # timeframe = pieces[2]  # FIXME mettere il timeframe da qualche parte
-        # symbol = product_code + month_code + expiration_year
-        # logger.warning(
-        #     f"symbol: {symbol} va sistemato,"
-        #     "va adottato lo standard a 4 cifre per la data, e la regex va aggiornata."
-        # )
+        # FIXME hard-coded
         return cls(
             provider=DataProvider.FIRSTRATE,
             asset_class=AssetClass.FX,
             symbol=symbol,
-            type=FuturesContractType.INDIVIDUAL,
         )
+
+
+@dataclass(kw_only=True)
+class ContinuousFuturesReferenceData(ReferenceData):
+    product_code: str = field(init=False)
+    offset: int = field(init=False)
+    rollover_rule: RolloverRule
+    # adjustment: ContinuousFuturesAdjustment
+
+    def __post_init__(self):
+        self.product_code = self.symbol.product_code
+        # self.offset = int(str(self.symbol).split("-")[1])
 
 
 @dataclass(kw_only=True)
