@@ -170,52 +170,55 @@ class ContinuousFuturesContract(Instrument):
 
         # the continuous starts from the beginning of the first contract
         start: pd.Timestamp = contracts[0].activation
-
-        for i in range(len(contracts)):
-            curr: FuturesContract = contracts[i]
-            df = curr.market_data["D"]
-            if i != 0:
-                prev: FuturesContract = contracts[i - 1]
+        for i in range(len(contracts) - 1):
+            curr_c: FuturesContract = contracts[i]
+            next_c: FuturesContract = contracts[i + 1]
+            df = curr_c.market_data["D"]
 
             match rollover_rule:
                 case RolloverRule.EXPIRY:
-                    if i != 0:
-                        start = prev.expiration
-                    # from the expiration day of the previous until the day prior
-                    # the expiration of this one
-                    slice = df[(df.index >= start) & (df.index < curr.expiration)]
+                    # from prev exp day (included) to curr exp day (excluded)
+                    slice = df[(df.index >= start) & (df.index < curr_c.expiration)]
+                    start = curr_c.expiration
                 case RolloverRule.OPEN_INTEREST:
-                    if i == 0:
-                        continue
                     # crossover day, excluded
-                    end = _ts_next_exceeds_curr(prev, curr)
-                    slice = df[(df.index >= start) & (df.index <= end)]
-                    start = end
-                    
+                    roll_date: pd.Timestamp = _ts_contract_exceeds_other(curr_c, next_c)
+                    slice = df[(df.index >= start) & (df.index < roll_date)]
+                    start = roll_date
                 case _:
                     raise ValueError("This is not a valid rule.")
-            # finally perform the concatenation
-            # TODO vedi come mettere 1 min data
             market_data["D"] = pd.concat([market_data["D"], slice])
+
+        # concatenate last contract till its end
+
+        market_data["D"] = pd.concat(
+            [market_data["D"], next_c.market_data["D"][start:]]
+        )
+        # TODO spostalo in testing
+        if not is_strictly_increasing(market_data["D"]):
+            raise ValueError(
+                "Continuous index is not strictly increasing."
+                "Something may be wrong in the calculation."
+            )
         return cls(ref, market_data)
 
 
-class FuturesContracts:
-    def __init__(self, contracts: list[FuturesContract]):
-        self._contracts = contracts
+# class FuturesContracts:
+#     def __init__(self, contracts: list[FuturesContract]):
+#         self._contracts = contracts
 
-    def sort(self) -> None:
-        """
-        Sorts in-place a given list of Futures contracts based on product
-        code and expiration."""
+#     def sort(self) -> None:
+#         """
+#         Sorts in-place a given list of Futures contracts based on product
+#         code and expiration."""
 
-        self.contracts.sort(
-            key=lambda contract: (contract.product_code, contract.expiration)
-        )
+#         self.contracts.sort(
+#             key=lambda contract: (contract.product_code, contract.expiration)
+#         )
 
-    @property
-    def contracts(self) -> list[FuturesContract]:
-        return self._contracts
+#     @property
+#     def contracts(self) -> list[FuturesContract]:
+#         return self._contracts
 
 
 # ----------------------------------------------------------------------
@@ -223,11 +226,16 @@ class FuturesContracts:
 # ----------------------------------------------------------------------
 
 
-def _ts_next_exceeds_curr(
+def is_strictly_increasing(index: pd.Index) -> bool:
+    return index.is_monotonic_increasing and index.is_unique
+
+
+def _ts_contract_exceeds_other(
     curr_contract: FuturesContract,
     next_contract: FuturesContract,
     column: str = "open_interest",  #  TODO lista di colonne?
     days_to_expiration: int = 20,
+    occurrence: int = 2,  # avoids lookahead bias
 ) -> pd.Timestamp:
     curr_df: pd.DataFrame = curr_contract.market_data["D"]
     df: pd.DataFrame = next_contract.market_data["D"]
@@ -240,7 +248,8 @@ def _ts_next_exceeds_curr(
     )[-days_to_expiration:]
 
     crossover: pd.Series = oi_both[column + _next] > oi_both[column + _curr]
-    start = crossover.idxmax()
+    # TODO gestisci IndexError
+    start = crossover[crossover].index[occurrence - 1]
 
     if not isinstance(start, pd.Timestamp):
         raise ValueError(f"Crossover date not found. Its value is {start}")
@@ -255,65 +264,12 @@ def sort_contracts(contracts: list[FuturesContract]) -> None:
     contracts.sort(key=lambda contract: (contract.product_code, contract.expiration))
 
 
-def next_timestamp(index: pd.DatetimeIndex, ts: pd.Timestamp) -> pd.Timestamp | None:
-    """Given a DateTimeIndex and a Timestamp, returns the
-    successive Timestamp.
+# def next_timestamp(index: pd.DatetimeIndex, ts: pd.Timestamp) -> pd.Timestamp | None:
+#     """Given a DateTimeIndex and a Timestamp, returns the
+#     successive Timestamp.
 
-    O(1) if index is sorted and unique, else O(n)"""
-    if ts in index:
-        pos = index.get_loc(ts)
-        return index[pos + 1] if pos + 1 < len(index) else None
-    return None
-
-
-# FIXME non funziona per ora
-# TODO mettilo nella clase futurescontract come "continuous_from_list"
-def merge_contracts(contracts: list[FuturesContract], rollover_rule) -> FuturesContract:
-    """
-    Contract merging changes based on the timeframe of the candle provided.
-    DAILY:
-    INTRADAY:
-
-    ## Returns
-    A FuturesContract object with continuous data
-    """
-    # sort contracts based on their expiry
-    sort_contracts(contracts)
-    ref = FuturesReferenceData(contracts)
-
-    continuous: FuturesContract = FuturesContract(
-        reference_data=contracts[0].reference_data,
-        market_data={"D": pd.DataFrame()},
-    )
-    # NOTE considera si spostare `start_date` qui
-    # dont loop over last contract bc its concatenated by previous loop
-    for i in range(len(contracts) - 1):
-        curr: FuturesContract = contracts[i]
-        next: FuturesContract = contracts[i + 1]
-
-        match rollover_rule:
-            case RolloverRule.EXPIRY:
-                # finds the index immediately after curr.expiration
-                start_date: pd.Timestamp = (
-                    next_timestamp(next.market_data["D"].index, curr.expiration)
-                    if i != 0  # start from the beginning of the first contract
-                    else curr.activation
-                )
-                # TODO separa EXPIRY_BEFORE e EXPIRY_AFTER
-                # concatenates to continuous from the day after expiration to
-                # the next expiration
-                continuous.market_data = pd.concat(
-                    [
-                        continuous.market_data,
-                        next.market_data["D"].loc[start_date : next.expiration],
-                    ]
-                )
-            case RolloverRule.OPEN_INTEREST:
-                # TODO implementare regola secondo cui al crossover in OI
-                # TODO si switcha, ma facendo attenzione ai fakeout.
-                # su questo proposito analizza i fakeout in OI fra i vari strumenti e
-                # quantomeno inserisci un primo filtro temporale (es a partire
-                #  da 10 giorni da exp accetti crossover)
-                raise NotImplementedError("")
-
-    return continuous
+#     O(1) if index is sorted and unique, else O(n)"""
+#     if ts in index:
+#         pos = index.get_loc(ts)
+#         return index[pos + 1] if pos + 1 < len(index) else None
+#     return None
