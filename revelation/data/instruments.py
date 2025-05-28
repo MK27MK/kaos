@@ -153,13 +153,31 @@ class ContinuousFuturesContract(Instrument):
     ):
         super().__init__(reference_data, market_data)
 
+    # ------------------------------------------------------------------
+    # properties
+    # ------------------------------------------------------------------
+
+    @property
+    def symbol(self) -> Symbol:
+        """Contract code of the instrument (e.g. 6E-M-2025, ES-H-2020)."""
+        return self.reference_data.symbol
+
+    @property
+    def product_code(self) -> str:
+        """Product code of the instrument (e.g. 6E, ES, ZN)."""
+        return self.reference_data.product_code
+
+    # ------------------------------------------------------------------
+    # methods
+    # ------------------------------------------------------------------
+
     @classmethod
     def from_individuals(
         cls, contracts: list[FuturesContract], rollover_rule: RolloverRule
     ) -> Self:
         sort_contracts(contracts)
         # FIXME hard-coded e precario -1-{rollover_rule}
-        sym = Symbol(f"{contracts[0].product_code}-1-{rollover_rule}")
+        sym = Symbol(f"{contracts[0].product_code}-1-{rollover_rule.value}")
         ref = ContinuousFuturesReferenceData(
             symbol=sym,
             provider=contracts[0].provider,
@@ -195,7 +213,7 @@ class ContinuousFuturesContract(Instrument):
             [market_data["D"], next_c.market_data["D"][start:]]
         )
         # TODO spostalo in testing
-        if not is_strictly_increasing(market_data["D"]):
+        if not is_strictly_increasing(market_data["D"].index):
             raise ValueError(
                 "Continuous index is not strictly increasing."
                 "Something may be wrong in the calculation."
