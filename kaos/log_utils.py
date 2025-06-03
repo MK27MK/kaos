@@ -1,16 +1,16 @@
 import logging
 
-# Codici ANSI per i colori e il grassetto
+# ANSI codes for colors and bold
 RESET = "\033[0m"
 BOLD = "\033[1m"
 COLORS = {
-    "DEBUG": "\033[34m",  # blu
-    "INFO": "\033[32m",  # verde
-    "WARNING": "\033[33m",  # giallo
-    "ERROR": "\033[31m",  # rosso
-    "CRITICAL": "\033[35m",  # viola
+    "DEBUG": "\033[34m",  # blue
+    "INFO": "\033[32m",  # green
+    "WARNING": "\033[33m",  # yellow
+    "ERROR": "\033[31m",  # red
+    "CRITICAL": "\033[35m",  # purple
 }
-WHITE_BOLD = "\033[1;37m"  # bianco in grassetto
+WHITE_BOLD = "\033[1;37m"  # bold white
 
 
 class ColorFormatter(logging.Formatter):
@@ -48,7 +48,7 @@ def get_logger(name: str, level=logging.DEBUG) -> logging.Logger:
 
 
 if __name__ == "__main__":
-    logger = get_logger("Revelation logger")
+    logger = get_logger("kaos logger")
     logger.debug("A message.")
     logger.info("A message.")
     logger.warning("A message.")

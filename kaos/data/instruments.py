@@ -4,14 +4,15 @@ from typing import Self
 
 import pandas as pd
 
-from revelation.data.data import (
+from kaos.analysis.time_series import is_strictly_increasing
+from kaos.data.data import (
     ContinuousFuturesReferenceData,
     FuturesReferenceData,
     ReferenceData,
 )
-from revelation.data.enums import AssetClass, DataProvider, RolloverRule
-from revelation.data.symbol import Symbol
-from revelation.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
+from kaos.data.enums import AssetClass, DataProvider, RolloverRule
+from kaos.data.symbol import Symbol
+from kaos.time_utils import MONTH_CODES, STANDARD_TIMEZONE, month_of_year
 
 # ----------------------------------------------------------------------
 # instruments classes
@@ -42,14 +43,11 @@ class Instrument:
 # FuturesContract ------------------------------------------------------
 
 
-# TODO separa continyous e individual
-# NOTE continuous sono dati sintetici, valuta separazione classi
 class FuturesContract(Instrument):
 
     def __init__(
         self,
         reference_data: FuturesReferenceData,
-        # NOTE daily obbligatori per il funzionamento attualmente
         market_data: dict[str, pd.DataFrame],
     ):
         """If reference data does not provide activation and expiration dates,
@@ -62,13 +60,13 @@ class FuturesContract(Instrument):
         super().__init__(reference_data, market_data)
 
         # activation and expiration ------------------------------------
-        # TODO rendi piu robusto
+        # TODO make it more robust
         # In case exp and act are not provided, first and last date
         # of the index will be used instead
         # if not isinstance(self.reference_data, FuturesReferenceData):
         #     raise ValueError()
         if "D" not in market_data:
-            raise KeyError("Daily timeframe is required.")
+            raise KeyError("Daily timeframe is currently required.")
         if self.activation is None:
             self.reference_data.activation = market_data["D"].index[0]
         if self.expiration is None:
@@ -118,13 +116,13 @@ class FuturesContract(Instrument):
     # ------------------------------------------------------------------
 
     def _get_expiration(self, year: str) -> pd.Timestamp:
-        # NOTE ci sono eccezioni in base a prodotto, es: CAD # https://www.cmegroup.com/rulebook/CME/III/250/252/252.pdf
-        # TODO valida la scadenza usando la data dell'ultima riga del df
+        # NOTE some products are different, ex: CAD # https://www.cmegroup.com/rulebook/CME/III/250/252/252.pdf
+        # TODO validate expiry using df'last Index
         """Given expiry year and month code, returns contract's
         expiration date based on CME's criteria."""
 
         # retrieve expiry year and month as integers
-        year_num = int(year)  # TODO gestisci eventuale anno a due cifre
+        year_num = int(year)  # TODO handle 2-digit year
         month_num = month_of_year(self.month_code)
 
         # match self.asset_class:
@@ -176,7 +174,7 @@ class ContinuousFuturesContract(Instrument):
         cls, contracts: list[FuturesContract], rollover_rule: RolloverRule
     ) -> Self:
         sort_contracts(contracts)
-        # FIXME hard-coded e precario -1-{rollover_rule}
+        # FIXME hard-coded -1-{rollover_rule.value}
         sym = Symbol(f"{contracts[0].product_code}-1-{rollover_rule.value}")
         ref = ContinuousFuturesReferenceData(
             symbol=sym,
@@ -186,7 +184,7 @@ class ContinuousFuturesContract(Instrument):
         )
         market_data = {tf: pd.DataFrame() for tf in contracts[0].market_data.keys()}
 
-        # the continuous starts from the beginning of the first contract
+        # continuous starts from the beginning of the first contract
         start: pd.Timestamp = contracts[0].activation
         for i in range(len(contracts) - 1):
             curr_c: FuturesContract = contracts[i]
@@ -212,7 +210,7 @@ class ContinuousFuturesContract(Instrument):
         market_data["D"] = pd.concat(
             [market_data["D"], next_c.market_data["D"][start:]]
         )
-        # TODO spostalo in testing
+        # TODO move it to tests
         if not is_strictly_increasing(market_data["D"].index):
             raise ValueError(
                 "Continuous index is not strictly increasing."
@@ -244,14 +242,10 @@ class ContinuousFuturesContract(Instrument):
 # ----------------------------------------------------------------------
 
 
-def is_strictly_increasing(index: pd.Index) -> bool:
-    return index.is_monotonic_increasing and index.is_unique
-
-
 def _ts_contract_exceeds_other(
     curr_contract: FuturesContract,
     next_contract: FuturesContract,
-    column: str = "open_interest",  #  TODO lista di colonne?
+    column: str = "open_interest",  #  TODO list[str]?
     days_to_expiration: int = 20,
     occurrence: int = 2,  # avoids lookahead bias
 ) -> pd.Timestamp:
@@ -266,7 +260,7 @@ def _ts_contract_exceeds_other(
     )[-days_to_expiration:]
 
     crossover: pd.Series = oi_both[column + _next] > oi_both[column + _curr]
-    # TODO gestisci IndexError
+    # TODO handle IndexError
     start = crossover[crossover].index[occurrence - 1]
 
     if not isinstance(start, pd.Timestamp):

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class Strategy(ABC):  # TODO make it abc?
+class Strategy(ABC):
     @abstractmethod
     def init(self):
         pass

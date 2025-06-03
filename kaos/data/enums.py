@@ -1,6 +1,6 @@
 from enum import IntEnum, StrEnum, auto, unique
 
-# TODO considera di creare una BaseEnum
+# TODO consider writing a BaseEnum
 
 # time -----------------------------------------------------------------
 

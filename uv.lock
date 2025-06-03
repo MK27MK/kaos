@@ -949,7 +949,7 @@ wheels = [
 ]
 
 [[package]]
-name = "revelation"
+name = "kaos"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

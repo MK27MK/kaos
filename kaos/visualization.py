@@ -98,8 +98,8 @@ def plot(df, precision: int = 5):
                 low=df["low"],
                 close=df["close"],
                 name="OHLC",
-                increasing=dict(line=dict(color=CLR_BLACK), fillcolor=UP_COL),
-                decreasing=dict(line=dict(color=CLR_BLACK), fillcolor=DOWN_COL),
+                increasing=dict(line=dict(color=UP_COL), fillcolor=UP_COL),
+                decreasing=dict(line=dict(color=DOWN_COL), fillcolor=DOWN_COL),
             )
         ]
     )
@@ -147,8 +147,7 @@ def plot(df, precision: int = 5):
 
 if __name__ == "__main__":
     import panel as pn
-
-    from revelation.data.loading import (
+    from kaos.data.loading import (
         Catalog,
         CSVPreset,
         firstrate_dirname,

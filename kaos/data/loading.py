@@ -7,11 +7,11 @@ from typing import Literal, overload
 import pandas as pd
 from dotenv import load_dotenv
 
-from revelation.data.data import FuturesReferenceData, ReferenceData
-from revelation.data.enums import AssetClass, DataProvider, MarketDataType
-from revelation.data.instruments import FuturesContract, Instrument, sort_contracts
-from revelation.data.symbol import Symbol
-from revelation.log_utils import get_logger
+from kaos.data.data import FuturesReferenceData, ReferenceData
+from kaos.data.enums import AssetClass, DataProvider, MarketDataType
+from kaos.data.instruments import FuturesContract, Instrument, sort_contracts
+from kaos.data.symbol import Symbol
+from kaos.log_utils import get_logger
 
 # logger config
 logger = get_logger(__name__)
@@ -20,14 +20,9 @@ logger = get_logger(__name__)
 #     def __init__(self, instruments: list[Instrument]):
 
 
-# FIXME forse un po a cazzo ma funziona
-load_dotenv()
-DATA_PATH = Path(os.getenv("DATA_PATH"))
-
-
-# TODO potresti renderla interna e usare DataProvider piuttosto
+# TODO merge it with DataProvider, making it a class instead of an enum
 class CSVPreset:
-    # Preset per i file "firstrate": niente header e potenziale colonna open_interest.
+    # Preset "firstrate": no header and possible open_interest column
     FIRSTRATE = dict(
         header=None,
         names=[
@@ -57,10 +52,10 @@ class CSVPreset:
 
 
 class Catalog:
-    def __init__(self, directory: Path = DATA_PATH):
+    def __init__(self, directory: Path = Path("~/data").expanduser()):
         self._directory = directory
         self._market_directory = directory / "market"
-        # self._reference_directory = directory / "reference" # per ora non esiste
+        # self._reference_directory = directory / "reference" # NOTE might not need it
         # put the reference data in the market directory? create a link to it?
         self._fundamental_directory = directory / "fundamental"
         self._raw_directory = directory / "raw"
@@ -83,25 +78,23 @@ class Catalog:
     def raw_directory(self) -> Path:
         return self._raw_directory
 
-    # methods ----------------------------------------------------------
+    # ------------------------------------------------------------------
+    # methods
+    # ------------------------------------------------------------------
 
     @staticmethod
-    # per ora cosi, poi implementare i metodi per prendere direttamente i dati
     def get_csv(file: Path, preset: dict = {}) -> pd.DataFrame:
         """
-        Permette di leggere un solo file o una cartella intera di .csv
-        o .txt, restituendo il/i dataframe corrispondenti.
-        Consente l'utilizzo di un preset per avere dei settaggi già
-        pronti.
+        Reads a single .csv/.txt file and returns the corresponding DataFrame.
+        Allows the use of a preset for ready-made settings.
 
-        Per renderla più efficiente valuta anche polars.
-        https://chatgpt.com/share/682defd6-4dac-8000-8a63-1211050b294d
+        For improved performance with large files, consider using polars.
         """
         if not file.exists():
             raise FileNotFoundError(f"File not found: {file}")
 
         # ------------------------------------------------------------------
-        # Copia per non mutare l'oggetto originale
+        # creates a copy instead of changing the original object
         preset = {} if preset is None else preset.copy()
         tz: str | None = preset.pop("tz", None)
         out: pd.DataFrame = pd.read_csv(file, **preset)
@@ -149,16 +142,10 @@ class Catalog:
         # for each tf read the corresponding csv and return a dict
         dfs: dict[str, pd.DataFrame] = {}
         for tf in timeframes:
-            tf_dir: str = "1d" if tf == "1day" else "1m"
-            tf_pandas: str = "D" if tf == "1day" else "1min"  # == tf
-            dir = (
-                self.raw_directory / provider.value / firstrate_dirname(tf_dir)
-            )  # FIXME
-            file = dir / f"{symbol.firstrate_string}_{tf}.txt"
+            tf_pandas, file = self._path_in_raw_data(symbol, provider, tf)
             dfs[tf_pandas] = self.get_csv(file, preset)
-
-            # crea colonna per il simbolo, utile per i continuous, NOTE vedi se spostarla
-            dfs[tf_pandas]["symbol"] = str(symbol)
+            # create symbol column, useful for continuous contracts, NOTE: consider moving this elsewhere
+            dfs[tf_pandas].insert(0, "symbol", value=(symbol))
 
         reference_data = FuturesReferenceData.from_symbol(symbol)
         return FuturesContract(reference_data, dfs)
@@ -182,7 +169,10 @@ class Catalog:
         sort_contracts(contracts)
         return contracts
 
-    # TODO deve anche poter prendere dati da raw e categorizzarli
+    # @staticmethod
+    # get_tradingview(symbol: str, timeframe)
+
+    # TODO: should also be able to fetch data from raw and categorize it
     def write(self):
         pass
 
@@ -202,11 +192,21 @@ class Catalog:
     @staticmethod
     def _list_matching_files(directory: Path, pattern: re.Pattern) -> list[Path]:
         base = Path(directory).expanduser().resolve()
-        # TODO forse sorted semplice non va bene, in ogni caso la funzione fa cacare
         return sorted(
             [path for path in base.iterdir() if pattern.match(path.name)],
             key=lambda p: p.stem,
         )
+
+    def _path_in_raw_data(self, symbol: Symbol, provider: DataProvider, timeframe: str):
+        dir = self.raw_directory / provider.value
+        daily_aliases = ("1day", "1d", "d")
+        tf_pandas: str = "D" if timeframe.lower() in daily_aliases else "1min"  # == tf
+
+        if provider == DataProvider.FIRSTRATE:
+            tf_dir: str = "1d" if timeframe.lower() in daily_aliases else "1m"
+            dir /= firstrate_dirname(tf_dir)
+        file = dir / f"{symbol.firstrate_string}_{timeframe}.txt"
+        return tf_pandas, file
 
     # @staticmethod
     # def _collect_files(directory: Path, symbol: str = "") -> list[Path]:
@@ -214,9 +214,6 @@ class Catalog:
     #     csv_files = list(directory.glob(f"{symbol}*.csv"))
     #     txt_files = list(directory.glob(f"{symbol}*.txt"))
     #     return sorted(csv_files + txt_files)
-
-    # NOTE aggiungere parametro per il tipo di strumento?
-    # poi verifica con isinstance, cosi da popolare correttamente referencedata
 
     def firstrate_directory(self, timeframe: Literal["1d", "1m"]) -> Path:
         return self.raw_directory / "csv/firstrate" / firstrate_dirname(timeframe)
@@ -232,8 +229,8 @@ def regex_pattern(
     years: list[int],
     month_codes: str,
 ) -> re.Pattern:
-    # TODO aggiungi parametro format/data provider per il formato della regex
-    # in base alla sorgente
+    # TODO add a parameter for format/data provider to adjust the regex format
+    # based on the data source
     sym = "|".join(map(re.escape, symbols))
     year = "|".join(f"{y:02d}" for y in years)
     month = f"[{re.escape(month_codes)}]"

@@ -1,6 +1,5 @@
 import pandas as pd
-
-from revelation.data.enums import DayOfWeek, WeekOfMonth
+from kaos.data.enums import DayOfWeek, WeekOfMonth
 
 # ----------------------------------------------------------------------
 # constants

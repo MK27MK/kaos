@@ -1,11 +1,7 @@
 """
-This module contains reseampling functions to create timeframes.
-pandas df resampling - https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.resample.html#pandas.DataFrame.resample
-pandas offset strings - (https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#dateoffset-objects)
+This module contains resampling functions to create timeframes.
 
-
-Il tipo di aggregazione che mi interessa è con lo start_time della candela
-incluso.
+The type of aggregation I am interested in includes the start_time of the candle.
 """
 
 import pandas as pd
@@ -29,10 +25,12 @@ def subsample_ohlc(
     time_column: str | None = None,
     offset=None,
     dropna_rows: bool = True,
+    label: str = 'right'
 ) -> pd.DataFrame:
     """
     they might give some problems with other timeframes, check them with TV
     label='left' means the start of the bar, doesnt change aggr, just the index time
+    'right' funziona correttamente 1min -> 1D usando offset di 18h
 
     >>> series.resample('3min').sum()
     2000-01-01 00:00:00     3
@@ -51,7 +49,7 @@ def subsample_ohlc(
     """
 
     sampled = data.resample(
-        timeframe, label="left", closed="left", on=time_column, offset=offset
+        timeframe, label=label, closed="left", on=time_column, offset=offset
     ).agg(
         {
             # col    # func
@@ -62,7 +60,6 @@ def subsample_ohlc(
             "volume": "sum",
         }
     )
-    # non considera il volume, rivedi
     # removes na rows since there are many times with 0 volume, so no data.
     return (
         sampled.dropna(subset=["open", "high", "low", "close"], how="all")

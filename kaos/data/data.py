@@ -7,9 +7,9 @@ from typing import Self, final
 
 import pandas as pd
 
-from revelation.data.enums import AssetClass, DataProvider, RolloverRule
-from revelation.data.symbol import Symbol
-from revelation.log_utils import get_logger
+from kaos.data.enums import AssetClass, DataProvider, RolloverRule
+from kaos.data.symbol import Symbol
+from kaos.log_utils import get_logger
 
 # logger config
 logger = get_logger(__name__)
@@ -56,7 +56,7 @@ class ReferenceData(Data):
         pass
 
 
-@dataclass(kw_only=True)  # NOTE aggiunto adesso
+@dataclass(kw_only=True)
 class FuturesReferenceData(ReferenceData):
     # ------------------------------------------------------------------
     activation: pd.Timestamp | None = None
@@ -65,7 +65,6 @@ class FuturesReferenceData(ReferenceData):
     month_code: str | None = field(init=False, default=None)  # None if continuous
 
     def __post_init__(self):
-        # TODO aggiungi logica di differenziazione individual e continuous
         self.product_code = self.symbol.product_code
         self.month_code = self.symbol.month_code
 

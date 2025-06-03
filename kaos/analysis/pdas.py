@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 import pandas as pd
-
-from revelation.analysis.enums import GapDirection
+from kaos.analysis.enums import GapDirection
 
 
 @dataclass(kw_only=True)
