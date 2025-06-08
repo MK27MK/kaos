@@ -3,6 +3,7 @@ from abc import abstractmethod
 from typing import Self
 
 import pandas as pd
+from numpy import roll
 
 from kaos.analysis.time_series import is_strictly_increasing
 from kaos.data.data import (
@@ -170,6 +171,49 @@ class ContinuousFuturesContract(Instrument):
     # ------------------------------------------------------------------
 
     @classmethod
+    def _roll_dates(
+        contracts: list[FuturesContract], rollover_rule: RolloverRule
+    ) -> list[pd.Timestamp]:
+        roll_dates: list[pd.Timestamp] = []
+
+        # iterate until penultimate, which will be shown until the end of its available data
+        for i in range(len(contracts) - 1):
+            curr_c: FuturesContract = contracts[i]
+            next_c: FuturesContract = contracts[i + 1]
+
+            match rollover_rule:
+                case RolloverRule.EXPIRY:
+                    end = curr_c.expiration
+                case RolloverRule.OPEN_INTEREST:
+                    end = _ts_contract_exceeds_other(curr_c, next_c)
+                case _:
+                    raise ValueError("This is not a valid rule.")
+
+            roll_dates.append(end)
+
+        return roll_dates
+
+    @classmethod
+    def _concat_individuals(
+        contracts: list[FuturesContract], roll_dates: list[pd.Timestamp]
+    ) -> pd.DataFrame:
+        slices = []
+
+        contracts.insert(0, contracts[0].activation)
+        # TODO do it two times, one for daily and the other for 1min
+        for i in range(len(roll_dates) - 1):
+            start = roll_dates[i]
+            end = roll_dates[i + 1]
+            df = contracts[i].market_data["D"]
+
+            slice_c = df[(df.index >= start) & (df.index < end)]
+            slices.append(slice_c)
+            start = end
+        slices.append(contracts[-1].market_data["D"][start:])
+
+        return pd.concat(slices)
+
+    @classmethod
     def from_individuals(
         cls, contracts: list[FuturesContract], rollover_rule: RolloverRule
     ) -> Self:
@@ -182,35 +226,11 @@ class ContinuousFuturesContract(Instrument):
             asset_class=contracts[0].asset_class,
             rollover_rule=rollover_rule,
         )
-        market_data = {tf: pd.DataFrame() for tf in contracts[0].market_data.keys()}
+        # market_data = {tf: pd.DataFrame() for tf in contracts[0].market_data.keys()}
+        roll_dates: list[pd.Timestamp] = cls._roll_dates(contracts, rollover_rule)
+        concatenated: pd.DataFrame = cls._concat_individuals(contracts, roll_dates)
+        market_data = ...
 
-        # continuous starts from the beginning of the first contract
-        # TODO instead of performing the concatenation here, just create a list of tuples,
-        # each one containing start and end time of the contract, then concatenate.
-        # this way, you can generate a continuous for all timeframes.
-        start: pd.Timestamp = contracts[0].activation
-        end: pd.Timestamp = None
-        for i in range(len(contracts) - 1):
-            curr_c: FuturesContract = contracts[i]
-            next_c: FuturesContract = contracts[i + 1]
-            df = curr_c.market_data["D"]
-
-            match rollover_rule:
-                case RolloverRule.EXPIRY:
-                    end = curr_c.expiration
-                case RolloverRule.OPEN_INTEREST:
-                    end = _ts_contract_exceeds_other(curr_c, next_c)
-                case _:
-                    raise ValueError("This is not a valid rule.")
-
-            slice_c = df[(df.index >= start) & (df.index < end)]
-            start = end
-            market_data["D"] = pd.concat([market_data["D"], slice_c])
-
-        # concatenate last contract till its end (start is set correctly in last iteration)
-        market_data["D"] = pd.concat(
-            [market_data["D"], next_c.market_data["D"][start:]]
-        )
         # TODO move it to tests
         if not is_strictly_increasing(market_data["D"].index):
             raise ValueError(
