@@ -185,7 +185,11 @@ class ContinuousFuturesContract(Instrument):
         market_data = {tf: pd.DataFrame() for tf in contracts[0].market_data.keys()}
 
         # continuous starts from the beginning of the first contract
+        # TODO instead of performing the concatenation here, just create a list of tuples,
+        # each one containing start and end time of the contract, then concatenate.
+        # this way, you can generate a continuous for all timeframes.
         start: pd.Timestamp = contracts[0].activation
+        end: pd.Timestamp = None
         for i in range(len(contracts) - 1):
             curr_c: FuturesContract = contracts[i]
             next_c: FuturesContract = contracts[i + 1]
@@ -193,17 +197,15 @@ class ContinuousFuturesContract(Instrument):
 
             match rollover_rule:
                 case RolloverRule.EXPIRY:
-                    # from prev exp day (included) to curr exp day (excluded)
-                    slice = df[(df.index >= start) & (df.index < curr_c.expiration)]
-                    start = curr_c.expiration
+                    end = curr_c.expiration
                 case RolloverRule.OPEN_INTEREST:
-                    # crossover day, excluded
-                    roll_date: pd.Timestamp = _ts_contract_exceeds_other(curr_c, next_c)
-                    slice = df[(df.index >= start) & (df.index < roll_date)]
-                    start = roll_date
+                    end = _ts_contract_exceeds_other(curr_c, next_c)
                 case _:
                     raise ValueError("This is not a valid rule.")
-            market_data["D"] = pd.concat([market_data["D"], slice])
+
+            slice_c = df[(df.index >= start) & (df.index < end)]
+            start = end
+            market_data["D"] = pd.concat([market_data["D"], slice_c])
 
         # concatenate last contract till its end (start is set correctly in last iteration)
         market_data["D"] = pd.concat(
