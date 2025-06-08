@@ -15,13 +15,6 @@ class Symbol:
         return self.value
 
 
-if __name__ == "__main__":
-    sym = Symbol("6E-M-2024")
-    print(sym)
-
-"CME:6E-M-2024[]"
-
-
 class Venue:
     def __init__(self, name: str):
         # TODO add checks
@@ -31,8 +24,16 @@ class Venue:
         return self.name
 
 
+"CME:6E-M-2024[]"
+
+
 class InstrumentId:
     def __init__(self, venue: Venue, symbol: Symbol):
         self._venue = venue
         self._symbol = symbol
         self._id = f"{venue}:{symbol}"
+
+
+if __name__ == "__main__":
+    sym = Symbol("6E-M-2024")
+    print(sym)

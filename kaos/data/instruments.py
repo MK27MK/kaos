@@ -205,8 +205,7 @@ class ContinuousFuturesContract(Instrument):
                     raise ValueError("This is not a valid rule.")
             market_data["D"] = pd.concat([market_data["D"], slice])
 
-        # concatenate last contract till its end
-
+        # concatenate last contract till its end (start is set correctly in last iteration)
         market_data["D"] = pd.concat(
             [market_data["D"], next_c.market_data["D"][start:]]
         )
