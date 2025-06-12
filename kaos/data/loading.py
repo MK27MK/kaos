@@ -1,15 +1,12 @@
-import os
 import re
 from pathlib import Path
-from time import asctime
-from typing import Literal, overload
+from typing import Literal
 
 import pandas as pd
-from dotenv import load_dotenv
 
-from kaos.data.data import FuturesReferenceData, ReferenceData
-from kaos.data.enums import AssetClass, DataProvider, MarketDataType
-from kaos.data.instruments import FuturesContract, Instrument, sort_contracts
+from kaos.data.data import FuturesReferenceData
+from kaos.data.enums import DataProvider
+from kaos.data.instruments import FuturesContract, sort_contracts
 from kaos.data.symbol import Symbol
 from kaos.log_utils import get_logger
 
@@ -240,6 +237,9 @@ def regex_pattern(
     return re.compile(pattern, re.IGNORECASE)
 
 
+
+### NOTE provisional: just to make data retrieval faster
+
 def firstrate_dirname(timeframe: Literal["1d", "1m"]) -> str:
     dirname = f"indi_arch_fut_{timeframe}"
     return dirname
@@ -254,7 +254,7 @@ def firstrate_filename(
 ) -> str:
     filename = f"{product}_{month_code}{year % 2000}_{timeframe}{extension}"
     return filename
-
+###
 
 # ----------------------------------------------------------------------
 # demonstration

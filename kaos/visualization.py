@@ -1,10 +1,19 @@
 import pandas as pd
 
+"""
+Currently fkn around with different visualization methods,
+but unsatisfied with all of them.
+I'm consider using apache Echarts, 
+but that would need some sort of wrapper.
+"""
+
 # colors ---------------------------------------------------------------
 BG_COL = "#b2b5be"
 UP_COL = "rgba(120, 123, 134, 100)"
 CLR_BLACK = "rgba(0, 0, 0, 100)"
 DOWN_COL = "rgba(42, 46, 57, 100)"
+
+# Tradingview lightweight charts (unofficial python wrapper) -----------
 
 
 def set_chart(df):
@@ -35,6 +44,9 @@ def set_chart(df):
     return chart
 
 
+# hvplot ---------------------------------------------------------------
+
+
 def hvplot_ohlc(
     data: pd.DataFrame,
     title: str | None = None,
@@ -48,7 +60,6 @@ def hvplot_ohlc(
     hv.extension("bokeh")
     hv.renderer("bokeh").theme = "dark_minimal"  # built-in Bokeh theme
     style = dict()
-    # TODO sistemalo per avere la formattazione corretta della legenda
     # https://docs.bokeh.org/en/latest/docs/reference/models/formatters.html#bokeh.models.DatetimeTickFormatter
     # formatter = DatetimeTickFormatter(
     #     milliseconds=["%a %d %b '%y %H:%M"],
@@ -71,24 +82,21 @@ def hvplot_ohlc(
         autorange="y",
         title=title,
         yaxis="right",
-        yformatter=f"%.{precision}f",  # use intrument precision
+        yformatter=f"%.{precision}f",  # use  Instrument.precision
         fontscale=0.9,
         # xformatter=formatter,
         xlim=(data.index[-n], data.index[-1]),
     ).opts(**style)
 
 
-# def label_down(chart):
-#     chart.marker(position="above", shape="arrow_down")
-# help(chart.marker)
+# plotly ---------------------------------------------------------------
 
 
 def plot(df, precision: int = 5):
     import plotly.graph_objects as go
 
-    # ---- figura come FigureWidget ----------------------------------------------
-    # NOTE figurewidget per fare funzionare autoscale y, ma si rompe se lo
-    # mostri come  html per zoommare con la rotellina
+    # NOTE: FigureWidget is used to enable autoscale y, but it breaks if you
+    # display it as HTML to zoom with the mouse wheel
     fig = go.FigureWidget(
         data=[
             go.Candlestick(
@@ -110,7 +118,7 @@ def plot(df, precision: int = 5):
         xaxis_rangeslider_visible=True,  # slider sotto
         dragmode="pan",
         margin=dict(l=padding, r=padding, t=padding, b=padding),
-        xaxis_rangeslider_yaxis_rangemode="auto",  # …ma lascia il quadro completo nello slider
+        xaxis_rangeslider_yaxis_rangemode="auto",
         paper_bgcolor="#1c2026",
         # plot_bgcolor=BG_COL,
         font_color="white",
@@ -118,35 +126,36 @@ def plot(df, precision: int = 5):
     fig.update_xaxes(showgrid=False)
     fig.update_yaxes(showgrid=False, tickformat=f".{precision}f")
 
-    # ---- callback che si attiva quando cambia xaxis.range ----------------------
+    # ---- callback that triggers when xaxis.range changes ----------------------
     def autoscale_y(layout, _):
-        # range corrente dell’asse X
+        # current range of the X axis
         x0, x1 = fig.layout.xaxis.range
-        # filtro i dati visibili
+        # filter the visible data
         in_view = df.loc[x0:x1]
 
         if in_view.empty:
-            return  # protezione se l’intervallo è vuoto
+            return  # protection if the interval is empty
 
         ymin = in_view["low"].min()
         ymax = in_view["high"].max()
-        pad = (ymax - ymin) * 0.03  # 3 % di “aria”
+        pad = (ymax - ymin) * 0.03  # 3% of "air" (padding)
 
-        # applico il nuovo range Y
+        # apply the new Y range
         fig.layout.yaxis.range = [ymin - pad, ymax + pad]
 
-    # ‘xaxis.range’ è la proprietà che cambia sia con lo slider sia con zoom/pan
+    # 'xaxis.range' is the property that changes with both the slider and zoom/pan
     fig.layout.on_change(autoscale_y, "xaxis.range")
     # fig.show(config={"scrollZoom": True})
     return fig
     # html_str = pio.to_html(fig, config={"scrollZoom": True}, include_plotlyjs="cdn")
 
-    # # Mostralo direttamente
+    # # Show it directly
     # HTML(html_str)
 
 
 if __name__ == "__main__":
     import panel as pn
+
     from kaos.data.loading import (
         Catalog,
         CSVPreset,
