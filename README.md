@@ -1,6 +1,6 @@
 # KAOS
 
-Research and study trading strategies, then deploy them.
+Research and study trading systems, then deploy them.
 
 ## Description
 ...
